@@ -46,7 +46,9 @@ final readonly class DoctrinePingConnectionFinalizer implements Finalizer
             $connection->executeQuery($connection->getDatabasePlatform()->getDummySelectSQL());
         } catch (DBALException) {
             $connection->close();
-            $connection->connect();
+
+            // Attempt to reestablish the lazy connection by sending another query.
+            $connection->executeQuery($connection->getDatabasePlatform()->getDummySelectSQL());
         }
 
         if (!$entityManager->isOpen()) {
