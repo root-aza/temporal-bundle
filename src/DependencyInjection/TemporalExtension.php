@@ -36,14 +36,14 @@ final class TemporalExtension extends Extension
         $entityManagers = [];
         $connections    = [];
 
-        if ($container->hasParameter('doctrine.entity_managers')){
+        if ($container->hasParameter('doctrine.entity_managers')) {
             /** @var array<non-empty-string, non-empty-string> $rawEntityManagers */
             $rawEntityManagers = $container->getParameter('doctrine.entity_managers');
 
             $entityManagers = array_keys($rawEntityManagers);
         }
 
-        if ($container->hasParameter('doctrine.connections')){
+        if ($container->hasParameter('doctrine.connections')) {
             /** @var array<non-empty-string, non-empty-string> $rawConnections */
             $rawConnections = $container->getParameter('doctrine.connections');
 
