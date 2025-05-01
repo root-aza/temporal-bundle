@@ -81,7 +81,9 @@ final class WorkflowCompilerPass implements CompilerPass
             ...$config['pool']['globalInterceptors'],
         ];
 
-        $globalFinalizers = [];
+        $globalFinalizers = [
+            'temporal.framework.finalizer',
+        ];
 
         if ($config['pool']['useGlobalDoctrineIntegration'] != []) {
             $globalFinalizers = [
