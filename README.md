@@ -35,17 +35,17 @@ composer req temporal serializer
 
 ## Doctrine integrations
 
-If [`DoctrineBundle`](https://github.com/doctrine/DoctrineBundle) is use, the following finalizer is available to you:
+If [`DoctrineBundle`](https://github.com/doctrine/DoctrineBundle) is use, the following parameters is available to you:
 
-- `temporal.doctrine_ping_connection_<entity-mananger-name>.finalizer`
-- `temporal.doctrine_clear_entity_manager.finalizer`
+- `pool.useGlobalDoctrineIntegration` - Connect integration to all workers
+- `workers.useDoctrineIntegration` -    Connect the integration to a specific worker
 
-
-And interceptors: 
-- `temporal.doctrine_ping_connection_<entity-mananger-name>_activity_inbound.interceptor`
-
+These parameters accept a list of entity-managers
 
 Example config:
+
+
+**Specific worker**
 
 ```yaml
 temporal:
@@ -58,11 +58,41 @@ temporal:
     default:
       taskQueue: default
       exceptionInterceptor: temporal.exception_interceptor
-      finalizers: 
-        - temporal.doctrine_ping_connection_default.finalizer
-        - temporal.doctrine_clear_entity_manager.finalizer
-      interceptors:
-        - temporal.doctrine_ping_connection_default_activity_inbound.interceptor
+      useDoctrineIntegration: 
+        - default
+
+  clients:
+    default:
+      namespace: default
+      address: '%env(TEMPORAL_ADDRESS)%'
+      dataConverter: temporal.data_converter
+    cloud:
+      namespace: default
+      address: '%env(TEMPORAL_ADDRESS)%'
+      dataConverter: temporal.data_converter
+      clientKey: '%env(TEMPORAL_CLIENT_KEY_PATH)%'
+      clientPem: '%env(TEMPORAL_CLIENT_CERT_PATH)%'
+```
+
+**Connect integration to all workers**
+
+```yaml
+temporal:
+  defaultClient: default
+  pool:
+    dataConverter: temporal.data_converter
+    roadrunnerRPC: '%env(RR_RPC)%'
+    useGlobalDoctrineIntegration:
+      - default
+
+  workers:
+    default:
+      taskQueue: default
+      exceptionInterceptor: temporal.exception_interceptor
+
+    test:
+      taskQueue: test
+      exceptionInterceptor: temporal.exception_interceptor
 
   clients:
     default:
@@ -88,15 +118,14 @@ Install packages:
 composer require sentry temporal-sentry
 ```
 
-If [`SentryBundle`](https://github.com/getsentry/sentry-symfony) is use, the following interceptors is available to you:
+If [`SentryBundle`](https://github.com/getsentry/sentry-symfony) is use, the following parameters is available to you:
 
-- `temporal.sentry_workflow_outbound_calls.interceptor`
-- `temporal.sentry_activity_inbound.interceptor`
-
-
-
+- `pool.useGlobalSentryIntegration` - Connect integration to all workers
+- `workers.useSentryIntegration` -    Connect the integration to a specific worker
 
 Example config:
+
+**Specific worker**
 
 ```yaml
 temporal:
@@ -109,9 +138,7 @@ temporal:
     default:
       taskQueue: default
       exceptionInterceptor: temporal.exception_interceptor
-      interceptors:
-        - temporal.sentry_workflow_outbound_calls.intercepto
-        - temporal.sentry_activity_inbound.interceptor
+      useSentryIntegration: true
 
   clients:
     default:
@@ -119,6 +146,33 @@ temporal:
       address: '%env(TEMPORAL_ADDRESS)%'
       dataConverter: temporal.data_converter
 ```
+
+**Connect integration to all workers**
+
+```yaml
+temporal:
+  defaultClient: default
+  pool:
+    dataConverter: temporal.data_converter
+    roadrunnerRPC: '%env(RR_RPC)%'
+    useGlobalSentryIntegration: true
+
+  workers:
+    default:
+      taskQueue: default
+      exceptionInterceptor: temporal.exception_interceptor
+
+    test:
+      taskQueue: test
+      exceptionInterceptor: temporal.exception_interceptor  
+
+  clients:
+    default:
+      namespace: default
+      address: '%env(TEMPORAL_ADDRESS)%'
+      dataConverter: temporal.data_converter
+```
+
 
 
 
@@ -140,9 +194,6 @@ temporal:
     default:
       taskQueue: default
       exceptionInterceptor: temporal.exception_interceptor
-      interceptors:
-        - temporal.sentry_workflow_outbound_calls.intercepto
-        - temporal.sentry_activity_inbound.interceptor
 
   clients:
     default:

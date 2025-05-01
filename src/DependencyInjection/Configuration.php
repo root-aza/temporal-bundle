@@ -16,6 +16,7 @@ use DateMalformedIntervalStringException;
 use Doctrine\ORM\EntityManager;
 use InvalidArgumentException;
 use Sentry\SentryBundle\SentryBundle;
+use Symfony\Bundle\MonologBundle\MonologBundle;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface as BundleConfiguration;
@@ -195,6 +196,10 @@ final class Configuration implements BundleConfiguration
         $loggingDoctrineOpenTransactionValidator = function (array $values): bool {
             if (!InstalledVersions::willBeAvailable('doctrine/doctrine-bundle', EntityManager::class, [])) {
                 throw new InvalidArgumentException('Install dependencies `composer req orm`');
+            }
+
+            if (!InstalledVersions::willBeAvailable('symfony/monolog-bundle', MonologBundle::class, [])) {
+                throw new InvalidArgumentException('Install dependencies `composer req log`');
             }
 
             if (!(count($values) == count(array_unique($values)))) {

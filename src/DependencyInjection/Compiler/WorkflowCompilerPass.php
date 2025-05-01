@@ -73,10 +73,10 @@ final class WorkflowCompilerPass implements CompilerPass
 
         $globalInterceptors = [
             ...getInterceptorsForIntegration(
-                $config['pool']['useGlobalSentryIntegration'],
-                $config['pool']['useGlobalDoctrineIntegration'],
-                $config['pool']['useGlobalLoggingDoctrineOpenTransaction'],
-                $config['pool']['useGlobalTrackingSentryDoctrineOpenTransaction']
+                useSentryIntegration: $config['pool']['useGlobalSentryIntegration'],
+                useDoctrineIntegration: $config['pool']['useGlobalDoctrineIntegration'],
+                useTrackingSentryDoctrineOpenTransaction: $config['pool']['useGlobalTrackingSentryDoctrineOpenTransaction'],
+                useLoggingDoctrineOpenTransaction: $config['pool']['useGlobalLoggingDoctrineOpenTransaction']
             ),
             ...$config['pool']['globalInterceptors'],
         ];
@@ -124,10 +124,10 @@ final class WorkflowCompilerPass implements CompilerPass
                 ...$worker['interceptors'],
                 ...$globalInterceptors,
                 ...getInterceptorsForIntegration(
-                    $worker['useSentryIntegration'],
-                    $worker['useDoctrineIntegration'],
-                    $worker['useLoggingDoctrineOpenTransaction'],
-                    $worker['useTrackingSentryDoctrineOpenTransaction']
+                    useSentryIntegration: $worker['useSentryIntegration'],
+                    useDoctrineIntegration: $worker['useDoctrineIntegration'],
+                    useTrackingSentryDoctrineOpenTransaction: $worker['useTrackingSentryDoctrineOpenTransaction'],
+                    useLoggingDoctrineOpenTransaction: $worker['useLoggingDoctrineOpenTransaction']
                 ),
             ];
 
