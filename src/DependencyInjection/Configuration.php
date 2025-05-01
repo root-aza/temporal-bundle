@@ -13,6 +13,9 @@ namespace Vanta\Integration\Symfony\Temporal\DependencyInjection;
 
 use Closure;
 use DateMalformedIntervalStringException;
+use Doctrine\ORM\EntityManager;
+use InvalidArgumentException;
+use Sentry\SentryBundle\SentryBundle;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface as BundleConfiguration;
@@ -21,11 +24,19 @@ use Temporal\Api\Enums\V1\QueryRejectCondition;
 use Temporal\Internal\Support\DateInterval;
 use Temporal\Worker\WorkerFactoryInterface;
 use Temporal\WorkerFactory;
+use Vanta\Integration\Symfony\Temporal\InstalledVersions;
+use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
 
 /**
  * @phpstan-type PoolWorkerConfiguration array{
  *  dataConverter: non-empty-string,
  *  roadrunnerRPC: non-empty-string,
+ *  globalInterceptors: array<non-empty-string>,
+ *  globalFinalizers: array<non-empty-string>,
+ *  useGlobalSentryIntegration: bool,
+ *  useGlobalDoctrineIntegration: array<non-empty-string>,
+ *  useGlobalLoggingDoctrineOpenTransaction: array<non-empty-string>,
+ *  useGlobalTrackingSentryDoctrineOpenTransaction: array<non-empty-string>,
  * }
  *
  * @phpstan-type GrpcContext array{
@@ -87,6 +98,10 @@ use Temporal\WorkerFactory;
  *  maxConcurrentSessionExecutionSize: int,
  *  finalizers: array<int, non-empty-string>,
  *  interceptors: list<non-empty-string>,
+ *  useDoctrineIntegration: array<non-empty-string>,
+ *  useLoggingDoctrineOpenTransaction: array<non-empty-string>,
+ *  useTrackingSentryDoctrineOpenTransaction: array<non-empty-string>,
+ *  useSentryIntegration: bool,
  * }
  *
  *
@@ -102,6 +117,17 @@ use Temporal\WorkerFactory;
  */
 final class Configuration implements BundleConfiguration
 {
+    /**
+     * @param array<non-empty-string> $connections
+     * @param array<non-empty-string> $entityManagers
+     */
+    public function __construct(
+        private readonly array $connections,
+        private readonly array $entityManagers,
+    ) {
+    }
+
+
     public function getConfigTreeBuilder(): TreeBuilder
     {
         $treeBuilder = new TreeBuilder('temporal');
@@ -123,6 +149,88 @@ final class Configuration implements BundleConfiguration
 
             return false;
         };
+
+
+        $sentryValidator = static function (): bool {
+            if (!InstalledVersions::willBeAvailable('sentry/sentry-symfony', SentryBundle::class, [])) {
+                return true;
+            }
+
+            if (!InstalledVersions::willBeAvailable('vanta/temporal-sentry', SentryWorkflowOutboundCallsInterceptor::class)) {
+                return true;
+            }
+
+            return false;
+        };
+
+        $doctrineIntegrationValidator = function (array $values): bool {
+            if (!InstalledVersions::willBeAvailable('doctrine/doctrine-bundle', EntityManager::class, [])) {
+                throw new InvalidArgumentException('Install dependencies `composer req orm`');
+            }
+
+            if (!(count($values) == count(array_unique($values)))) {
+                throw new InvalidArgumentException('Should not be repeated entity-manager');
+            }
+
+
+            $notFoundEntityManages = [];
+
+            if ($this->entityManagers == []) {
+                return false;
+            }
+
+            foreach ($values as $value) {
+                if (!in_array($value, $this->entityManagers, true)) {
+                    $notFoundEntityManages[] = $value;
+                }
+            }
+
+            if ($notFoundEntityManages != []) {
+                throw new InvalidArgumentException(sprintf("Not found entity managers: %s", implode(', ', $notFoundEntityManages)));
+            }
+
+            return false;
+        };
+
+        $loggingDoctrineOpenTransactionValidator = function (array $values): bool {
+            if (!InstalledVersions::willBeAvailable('doctrine/doctrine-bundle', EntityManager::class, [])) {
+                throw new InvalidArgumentException('Install dependencies `composer req orm`');
+            }
+
+            if (!(count($values) == count(array_unique($values)))) {
+                throw new InvalidArgumentException('Should not be repeated connection');
+            }
+
+
+            $notFoundConnections = [];
+
+            if ($this->connections == []) {
+                return false;
+            }
+
+            foreach ($values as $value) {
+                if (!in_array($value, $this->connections, true)) {
+                    $notFoundConnections[] = $value;
+                }
+            }
+
+            if ($notFoundConnections != []) {
+                throw new InvalidArgumentException(sprintf("Not found entity managers: %s", implode(', ', $notFoundConnections)));
+            }
+
+            return false;
+        };
+
+        $trackingSentryDoctrineOpenTransactionValidator = function (array $values) use ($sentryValidator, $loggingDoctrineOpenTransactionValidator): bool {
+            if (!$sentryValidator()) {
+                throw new InvalidArgumentException('Install dependencies `composer req sentry/sentry-symfony vanta/temporal-sentry`');
+            }
+
+            $loggingDoctrineOpenTransactionValidator($values);
+
+            return false;
+        };
+
 
         //@formatter:off
         $treeBuilder->getRootNode()
@@ -165,6 +273,65 @@ final class Configuration implements BundleConfiguration
                         ->scalarNode('roadrunnerRPC')
                             ->cannotBeEmpty()
                         ->end()
+
+                        ->arrayNode('globalInterceptors')
+                            ->validate()
+                                ->ifTrue(static fn (array $values): bool => !(count($values) == count(array_unique($values))))
+                                ->thenInvalid('Should not be repeated interceptor')
+                            ->end()
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
+                            ->info('Global interceptors connect to all workers')
+                        ->end()
+
+                        ->arrayNode('globalFinalizers')
+                            ->validate()
+                                ->ifTrue(static fn (array $values): bool => !(count($values) == count(array_unique($values))))
+                                ->thenInvalid('Should not be repeated finalizer')
+                            ->end()
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
+                            ->info('Global finalizers connect to all workers')
+                        ->end()
+
+                        ->booleanNode('useGlobalSentryIntegration')
+                            ->defaultFalse()
+                            ->validate()
+                                ->ifTrue($sentryValidator)
+                                ->thenInvalid('Install dependencies `composer req sentry/sentry-symfony vanta/temporal-sentry`')
+                            ->end()
+                            ->info('Connects Sentry integration to all workers')
+                        ->end()
+
+                        ->arrayNode('useGlobalDoctrineIntegration')
+                            ->validate()
+                                ->ifTrue($doctrineIntegrationValidator)
+                                ->thenInvalid('Should not be repeated entity-manager')
+                            ->end()
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
+                            ->info('Connects Doctrine integration to all workers. You need to pass a list to entity-manager.')
+                        ->end()
+
+                        ->arrayNode('useGlobalLoggingDoctrineOpenTransaction')
+                            ->validate()
+                                ->ifTrue($loggingDoctrineOpenTransactionValidator)
+                                ->thenInvalid('Should not be repeated connection')
+                            ->end()
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
+                            ->info('Attaches an interceptor to all workers that reports uncompleted transactions in the logs (monolog) after the action completes. You need to pass a list to connection(dbal).')
+                        ->end()
+
+                        ->arrayNode('useGlobalTrackingSentryDoctrineOpenTransaction')
+                            ->validate()
+                                ->ifTrue($trackingSentryDoctrineOpenTransactionValidator)
+                                ->thenInvalid('Should not be repeated connection')
+                            ->end()
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
+                            ->info('Attaches an interceptor to all workers that reports outstanding transactions in sentry after the activity has completed. You need to pass a list to connection(dbal).')
+                        ->end()
                     ->end()
                 ->end()
             ->end()
@@ -195,6 +362,45 @@ final class Configuration implements BundleConfiguration
                         ->scalarNode('taskQueue')
                             ->isRequired()->cannotBeEmpty()
                         ->end()
+
+                        ->booleanNode('useSentryIntegration')
+                            ->defaultFalse()
+                            ->validate()
+                                ->ifTrue($sentryValidator)
+                                ->thenInvalid('Install dependencies `composer req sentry/sentry-symfony vanta/temporal-sentry`')
+                            ->end()
+                        ->end()
+
+                        ->arrayNode('useDoctrineIntegration')
+                            ->validate()
+                                ->ifTrue($doctrineIntegrationValidator)
+                                ->thenInvalid('Should not be repeated entity-manager')
+                            ->end()
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
+                            ->info('Connects the current worker to the Doctrine integration. You need to pass a list to entity-manager.')
+                        ->end()
+
+                        ->arrayNode('useLoggingDoctrineOpenTransaction')
+                            ->validate()
+                                ->ifTrue($loggingDoctrineOpenTransactionValidator)
+                                ->thenInvalid('Should not be repeated connection')
+                            ->end()
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
+                            ->info('Attaches an interceptor to the current worker that reports uncompleted transactions in the logs (monolog) after the action completes. You need to pass a list to connection(dbal).')
+                        ->end()
+
+                        ->arrayNode('useTrackingSentryDoctrineOpenTransaction')
+                            ->validate()
+                                ->ifTrue($trackingSentryDoctrineOpenTransactionValidator)
+                                ->thenInvalid('Should not be repeated connection')
+                            ->end()
+                            ->defaultValue([])
+                            ->scalarPrototype()->end()
+                            ->info('Attaches an interceptor to the current worker that reports outstanding transactions in sentry after the activity has completed. You need to pass a list to connection(dbal).')
+                        ->end()
+
                         ->scalarNode('taskQueue')
                             ->isRequired()->cannotBeEmpty()
                         ->end()

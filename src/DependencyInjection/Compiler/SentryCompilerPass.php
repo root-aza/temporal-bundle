@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Vanta\Integration\Symfony\Temporal\DependencyInjection\Compiler;
 
+use Doctrine\ORM\EntityManager;
 use Sentry\SentryBundle\SentryBundle;
 use Sentry\Serializer\RepresentationSerializer;
 use Sentry\StacktraceBuilder;
@@ -20,9 +21,12 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\definition;
+use function Vanta\Integration\Symfony\Temporal\DependencyInjection\referenceLogger;
+use function Vanta\Integration\Symfony\Temporal\DependencyInjection\trackingSentryDoctrineOpenTransactionInterceptorId;
 
 use Vanta\Integration\Symfony\Temporal\InstalledVersions;
 use Vanta\Integration\Temporal\Sentry\SentryActivityInboundInterceptor;
+use Vanta\Integration\Temporal\Sentry\SentryDoctrineOpenTransactionInterceptor;
 use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
 
 final readonly class SentryCompilerPass implements CompilerPass
@@ -64,5 +68,27 @@ final readonly class SentryCompilerPass implements CompilerPass
                 new Reference('temporal.sentry_stack_trace_builder'),
             ])
         ;
+
+
+        if (!InstalledVersions::willBeAvailable('doctrine/doctrine-bundle', EntityManager::class, [])) {
+            return;
+        }
+
+        if (!$container->hasParameter('doctrine.connections')) {
+            return;
+        }
+
+        /** @var array<non-empty-string, non-empty-string> $connections */
+        $connections = $container->getParameter('doctrine.connections');
+
+
+        foreach ($connections as $connectionName => $connectionId) {
+            $container->register(trackingSentryDoctrineOpenTransactionInterceptorId($connectionName), SentryDoctrineOpenTransactionInterceptor::class)
+                ->setArguments([
+                    referenceLogger(),
+                    new Reference($connectionId),
+                ])
+            ;
+        }
     }
 }

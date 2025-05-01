@@ -178,3 +178,93 @@ function getWorkers(ReflectionClass $reflectionClass): array
 
     return array_unique($workers);
 }
+
+
+/**
+ * @internal
+ *
+ * @param non-empty-string $entityManager
+ *
+ * @return non-empty-string
+ */
+function doctrineInterceptorId(string $entityManager): string
+{
+    return sprintf('temporal.doctrine_ping_connection_%s_activity_inbound.interceptor', $entityManager);
+}
+
+
+/**
+ * @internal
+ *
+ * @param non-empty-string $entityManager
+ *
+ * @return non-empty-string
+ */
+function doctrineFinalizerId(string $entityManager): string
+{
+    return sprintf('temporal.doctrine_ping_connection_%s.finalizer', $entityManager);
+}
+
+
+/**
+ * @internal
+ *
+ * @param non-empty-string $connection
+ *
+ * @return non-empty-string
+ */
+function trackingSentryDoctrineOpenTransactionInterceptorId(string $connection): string
+{
+    return sprintf('temporal.tracking_sentry_open_transaction_%s_activity_inbound.interceptor', $connection);
+}
+
+
+/**
+ * @internal
+ *
+ * @param non-empty-string $connection
+ *
+ * @return non-empty-string
+ */
+function loggingDoctrineOpenTransactionInterceptorId(string $connection): string
+{
+    return sprintf('temporal.logging_open_transaction_%s_activity_inbound.interceptor', $connection);
+}
+
+
+/**
+ * @param array<non-empty-string> $useDoctrineIntegration
+ * @param array<non-empty-string> $useTrackingSentryDoctrineOpenTransaction
+ * @param array<non-empty-string> $useLoggingDoctrineOpenTransaction
+ *
+ * @return array<non-empty-string>
+ */
+function getInterceptorsForIntegration(bool $useSentryIntegration, array $useDoctrineIntegration, array $useTrackingSentryDoctrineOpenTransaction, array $useLoggingDoctrineOpenTransaction): array
+{
+    $interceptors = [];
+
+    if ($useSentryIntegration) {
+        $interceptors = [
+            ...$interceptors,
+            'temporal.sentry_workflow_outbound_calls.interceptor',
+            'temporal.sentry_activity_inbound.interceptor',
+        ];
+    }
+
+    $subscribers = [
+        [$useDoctrineIntegration, doctrineInterceptorId(...)],
+        [$useLoggingDoctrineOpenTransaction, loggingDoctrineOpenTransactionInterceptorId(...)],
+        [$useTrackingSentryDoctrineOpenTransaction, trackingSentryDoctrineOpenTransactionInterceptorId(...)],
+    ];
+
+    foreach ($subscribers as [$list, $getServiceId]) {
+        if ($list != []) {
+            $interceptors = [
+                ...$interceptors,
+                ...array_map($getServiceId(...), $list),
+            ];
+        }
+    }
+
+    return $interceptors;
+}

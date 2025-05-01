@@ -27,6 +27,8 @@ use Vanta\Integration\Symfony\Temporal\DependencyInjection\Configuration;
 
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\dateIntervalDefinition;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\definition;
+use function Vanta\Integration\Symfony\Temporal\DependencyInjection\doctrineFinalizerId;
+use function Vanta\Integration\Symfony\Temporal\DependencyInjection\getInterceptorsForIntegration;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\reference;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\referenceLogger;
 
@@ -68,6 +70,33 @@ final class WorkflowCompilerPass implements CompilerPass
         $activitiesWithoutWorkers = [];
         $workflowsWithoutWorkers  = [];
 
+
+        $globalInterceptors = [
+            ...getInterceptorsForIntegration(
+                $config['pool']['useGlobalSentryIntegration'],
+                $config['pool']['useGlobalDoctrineIntegration'],
+                $config['pool']['useGlobalLoggingDoctrineOpenTransaction'],
+                $config['pool']['useGlobalTrackingSentryDoctrineOpenTransaction']
+            ),
+            ...$config['pool']['globalInterceptors'],
+        ];
+
+        $globalFinalizers = [];
+
+        if ($config['pool']['useGlobalDoctrineIntegration'] != []) {
+            $globalFinalizers = [
+                ...$globalFinalizers,
+                ...array_map(doctrineFinalizerId(...), $config['pool']['useGlobalDoctrineIntegration']),
+            ];
+        }
+
+        $globalFinalizers = [
+            ...$globalFinalizers,
+            ...$config['pool']['globalFinalizers'],
+        ];
+
+
+
         foreach ($config['workers'] as $workerName => $worker) {
             $options = definition(WorkerOptions::class)
                 ->setFactory([WorkerOptions::class, 'new'])
@@ -91,6 +120,30 @@ final class WorkflowCompilerPass implements CompilerPass
                 $options->addMethodCall($method, [$value], true);
             }
 
+            $interceptors = [
+                ...$worker['interceptors'],
+                ...$globalInterceptors,
+                ...getInterceptorsForIntegration(
+                    $worker['useSentryIntegration'],
+                    $worker['useDoctrineIntegration'],
+                    $worker['useLoggingDoctrineOpenTransaction'],
+                    $worker['useTrackingSentryDoctrineOpenTransaction']
+                ),
+            ];
+
+            $finalizers = [
+                ...$worker['finalizers'],
+                ...$globalFinalizers,
+            ];
+
+            if ($worker['useDoctrineIntegration'] != []) {
+                $finalizers = [
+                    ...$finalizers,
+                    ...array_map(doctrineFinalizerId(...), $worker['useDoctrineIntegration']),
+                ];
+            }
+
+
             $newWorker = $container->register(sprintf('temporal.%s.worker', $workerName), WorkerInterface::class)
                 ->setFactory([$factory, 'newWorker'])
                 ->setArguments([
@@ -99,7 +152,7 @@ final class WorkflowCompilerPass implements CompilerPass
                     new Reference($worker['exceptionInterceptor']),
                     definition(SimplePipelineProvider::class)
                         ->setArguments([
-                            array_map(reference(...), $worker['interceptors']),
+                            array_map(reference(...), array_unique($interceptors)),
                         ]),
                 ])
                 ->setPublic(true)
@@ -149,7 +202,7 @@ final class WorkflowCompilerPass implements CompilerPass
                 ]);
             }
 
-            $this->registerFinalizers($worker['finalizers'], $workerName, $container);
+            $this->registerFinalizers(array_unique($finalizers), $workerName, $container);
 
             $configuredWorkers[$workerName] = $newWorker;
         }
