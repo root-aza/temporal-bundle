@@ -24,6 +24,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\EnvConfigurator;
 use Temporal\Api\Enums\V1\QueryRejectCondition;
 use Temporal\Internal\Support\DateInterval;
 use Temporal\Worker\WorkerFactoryInterface;
+use Temporal\Worker\WorkflowPanicPolicy;
 use Temporal\WorkerFactory;
 use Vanta\Integration\Symfony\Temporal\InstalledVersions;
 use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
@@ -552,6 +553,121 @@ final class Configuration implements BundleConfiguration
                                      Optional: The default amount of time between sending each pending heartbeat to the server.
                                      This is used if the ActivityOptions do not provide a HeartbeatTimeout.
                                      Otherwise, the interval becomes a value a bit smaller than the given HeartbeatTimeout.
+                                    STRING
+                            )
+                        ->end()
+                        ->enumNode('workflowPanicPolicy')
+                            ->values([
+                                WorkflowPanicPolicy::BlockWorkflow,
+                                WorkflowPanicPolicy::FailWorkflow,
+                            ])
+                            ->defaultValue(WorkflowPanicPolicy::BlockWorkflow)
+                            ->validate()
+                                ->ifNotInArray([
+                                    WorkflowPanicPolicy::BlockWorkflow,
+                                    WorkflowPanicPolicy::FailWorkflow,
+                                ])
+                                ->thenInvalid(sprintf('"workflowPanicPolicy" value is not in the enum: %s', WorkflowPanicPolicy::class))
+                            ->end()
+                            ->info(
+                                <<<STRING
+                                        Optional: Sets how workflow worker deals with non-deterministic history events
+                                        (presumably arising from non-deterministic workflow definitions or non-backward compatible workflow
+                                        definition changes) and other panics raised from workflow code.
+                                    STRING
+                            )
+                        ->end()
+                        ->booleanNode('enableLoggingInReplay')
+                            ->defaultFalse()
+                            ->info(
+                                <<<STRING
+                                        Optional: Enable logging in replay.
+                                        In the workflow code you can use workflow.GetLogger(ctx) to write logs. By default, the logger will skip log
+                                        entry during replay mode so you won't see duplicate logs. This option will enable the logging in replay mode.
+                                        This is only useful for debugging purpose.
+                                    STRING
+                            )
+                        ->end()
+                        ->booleanNode('disableWorkflowWorker')
+                            ->defaultFalse()
+                            ->info(
+                                <<<STRING
+                                        Optional: If set to true, a workflow worker is not started for this
+                                        worker and workflows cannot be registered with this worker. Use this if
+                                        you only want your worker to execute activities.
+                                    STRING
+                            )
+                        ->end()
+                        ->booleanNode('localActivityWorkerOnly')
+                            ->defaultFalse()
+                            ->info(
+                                <<<STRING
+                                       Optional: If set to true worker would only handle workflow tasks and local activities.
+                                       Non-local activities will not be executed by this worker.
+                                    STRING
+                            )
+                        ->end()
+                        ->booleanNode('disableEagerActivities')
+                            ->defaultFalse()
+                            ->info(
+                                <<<STRING
+                                       Optional: Disable eager activities. If set to true, activities will not
+                                       be requested to execute eagerly from the same workflow regardless
+                                       of {@see self::maxConcurrentEagerActivityExecutionSize}.
+
+                                       Eager activity execution means the server returns requested eager
+                                       activities directly from the workflow task back to this worker which is
+                                       faster than non-eager which may be dispatched to a separate worker.
+                                    STRING
+                            )
+                        ->end()
+                        ->integerNode('maxConcurrentEagerActivityExecutionSize')
+                            ->defaultValue(0)
+                            ->info(
+                                <<<STRING
+                                     Optional: Maximum number of eager activities that can be running.
+
+                                     When non-zero, eager activity execution will not be requested for
+                                     activities schedule by the workflow if it would cause the total number of
+                                     running eager activities to exceed this value. For example, if this is
+                                     set to 1000 and there are already 998 eager activities executing and a
+                                     workflow task schedules 3 more, only the first 2 will request eager execution.
+
+                                     The default of 0 means unlimited and therefore only bound by {@see self::maxConcurrentActivityExecutionSize}.
+                                    STRING
+                            )
+                        ->end()
+                        ->booleanNode('disableRegistrationAliasing')
+                            ->defaultFalse()
+                            ->info(
+                                <<<STRING
+                                     Optional: Disable allowing workflow and activity functions that are
+                                     registered with custom names from being able to be called with their function references.
+
+                                     Users are strongly recommended to set this as true if they register any
+                                     workflow or activity functions with custom names. By leaving this as
+                                     false, the historical default, ambiguity can occur between function names
+                                     and aliased names when not using string names when executing child workflow or activities.
+                                    STRING
+                            )
+                        ->end()
+                        ->scalarNode('buildID')
+                            ->defaultValue('')
+                            ->info(
+                                <<<STRING
+                                    Assign a BuildID to this worker. This replaces the deprecated binary checksum concept,
+                                    and is used to provide a unique identifier for a set of worker code, and is necessary
+                                    to opt in to the Worker Versioning feature. See {@see useBuildIDForVersioning}.
+                                    STRING
+                            )
+                        ->end()
+                        ->booleanNode('useBuildIDForVersioning')
+                            ->defaultFalse()
+                            ->info(
+                                <<<STRING
+                                     Optional: If set, opts this worker into the Worker Versioning feature.
+                                     It will only operate on workflows it claims to be compatible with.
+                                     You must set {@see buildID} if this flag is true.
                                     STRING
                             )
                         ->end()
