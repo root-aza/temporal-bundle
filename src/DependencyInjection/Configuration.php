@@ -439,14 +439,14 @@ final class Configuration implements BundleConfiguration
                             ->defaultValue(0)
                             ->info(
                                 <<<STRING
-                                  Sets the rate limiting on number of local activities that can
-                                  be executed per second per worker. This can be used to limit resources used by the worker.
+                                      Sets the rate limiting on number of local activities that can
+                                      be executed per second per worker. This can be used to limit resources used by the worker.
 
-                                  Notice that the number is represented in float, so that you can set it
-                                  to less than 1 if needed. For example, set the number to 0.1 means you
-                                  want your local activity to be executed once for every 10 seconds. This
-                                  can be used to protect down stream services from flooding.
-                                STRING
+                                      Notice that the number is represented in float, so that you can set it
+                                      to less than 1 if needed. For example, set the number to 0.1 means you
+                                      want your local activity to be executed once for every 10 seconds. This
+                                      can be used to protect down stream services from flooding.
+                                    STRING
                             )
                         ->end()
                         ->integerNode('taskQueueActivitiesPerSecond')
