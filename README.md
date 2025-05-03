@@ -13,7 +13,7 @@
 ## Requirements:
 
 - php >= 8.2
-- symfony >= 6.0
+- symfony >= 6.2
 
 ## Installation:
 
