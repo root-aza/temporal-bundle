@@ -24,6 +24,7 @@ use function Vanta\Integration\Symfony\Temporal\DependencyInjection\definition;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\grpcClient;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\reference;
 
+use Vanta\Integration\Symfony\Temporal\Interceptor\ProfilerWorkflowInterceptor;
 use Vanta\Integration\Symfony\Temporal\UI\Cli\ClientDebugCommand;
 
 /**
@@ -36,6 +37,15 @@ final class ClientCompilerPass implements CompilerPass
         /** @var RawConfiguration $config */
         $config  = $container->getParameter('temporal.config');
         $clients = [];
+
+        $globalInterceptors = [];
+
+        if ($container->getParameter('kernel.debug')) {
+            $globalInterceptors[] = $container->register(
+                'temporal.client_collector.interceptor',
+                ProfilerWorkflowInterceptor::class
+            );
+        }
 
         foreach ($config['clients'] as $name => $client) {
             $options = definition(ClientOptions::class)
@@ -60,7 +70,7 @@ final class ClientCompilerPass implements CompilerPass
                     '$converter'           => new Reference($client['dataConverter']),
                     '$interceptorProvider' => definition(SimplePipelineProvider::class)
                         ->setArguments([
-                            array_map(reference(...), $client['interceptors']),
+                            [...array_map(reference(...), $client['interceptors']), ...$globalInterceptors],
                         ]),
                 ]);
 

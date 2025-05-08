@@ -3,7 +3,7 @@ ARG PHP_INSTALLER_VERSION=2.1
 ARG ROADRUNNER_VERSION=2025.1
 
 FROM ghcr.io/roadrunner-server/roadrunner:${ROADRUNNER_VERSION} AS roadrunner
-FROM mlocati/php-extension-installer:${PHP_INSTALLER_VERSION} as installer
+FROM mlocati/php-extension-installer:${PHP_INSTALLER_VERSION} AS installer
 FROM php:${PHP_VERSION}-cli-buster AS temporal_php
 
 COPY --from=roadrunner /usr/bin/rr /usr/local/bin/rr

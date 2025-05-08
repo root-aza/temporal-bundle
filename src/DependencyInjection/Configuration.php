@@ -35,6 +35,7 @@ use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
  *  roadrunnerRPC: non-empty-string,
  *  globalInterceptors: array<non-empty-string>,
  *  globalFinalizers: array<non-empty-string>,
+ *  globalLogger: non-empty-string,
  *  useGlobalSentryIntegration: bool,
  *  useGlobalDoctrineIntegration: array<non-empty-string>,
  *  useGlobalLoggingDoctrineOpenTransaction: array<non-empty-string>,
@@ -86,6 +87,7 @@ use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
  *  name: non-empty-string,
  *  taskQueue: non-empty-string,
  *  address: non-empty-string,
+ *  logger: non-empty-string|null,
  *  exceptionInterceptor: non-empty-string,
  *  maxConcurrentActivityExecutionSize: int,
  *  workerActivitiesPerSecond: float|int,
@@ -279,7 +281,9 @@ final class Configuration implements BundleConfiguration
                         ->scalarNode('roadrunnerRPC')
                             ->cannotBeEmpty()
                         ->end()
-
+                        ->scalarNode('globalLogger')
+                            ->defaultValue('monolog.logger.temporal')
+                        ->end()
                         ->arrayNode('globalInterceptors')
                             ->validate()
                                 ->ifTrue(static fn (array $values): bool => !(count($values) == count(array_unique($values))))
@@ -368,7 +372,9 @@ final class Configuration implements BundleConfiguration
                         ->scalarNode('taskQueue')
                             ->isRequired()->cannotBeEmpty()
                         ->end()
-
+                        ->scalarNode('logger')
+                            ->defaultNull()
+                        ->end()
                         ->booleanNode('useSentryIntegration')
                             ->defaultFalse()
                             ->validate()

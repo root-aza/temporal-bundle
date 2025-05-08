@@ -13,8 +13,10 @@ namespace Vanta\Integration\Symfony\Temporal\DependencyInjection\Compiler;
 
 use Closure;
 use Spiral\RoadRunner\Environment as RoadRunnerEnvironment;
+use Symfony\Bundle\MonologBundle\MonologBundle;
 use Symfony\Component\DependencyInjection\Argument\ServiceClosureArgument;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface as CompilerPass;
+use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
@@ -34,6 +36,7 @@ use function Vanta\Integration\Symfony\Temporal\DependencyInjection\referenceLog
 
 use Vanta\Integration\Symfony\Temporal\Environment;
 use Vanta\Integration\Symfony\Temporal\Finalizer\ChainFinalizer;
+use Vanta\Integration\Symfony\Temporal\InstalledVersions;
 use Vanta\Integration\Symfony\Temporal\Runtime\Runtime;
 use Vanta\Integration\Symfony\Temporal\UI\Cli\ActivityDebugCommand;
 use Vanta\Integration\Symfony\Temporal\UI\Cli\WorkerDebugCommand;
@@ -89,6 +92,7 @@ final class WorkflowCompilerPass implements CompilerPass
             $globalFinalizers = [
                 ...$globalFinalizers,
                 ...array_map(doctrineFinalizerId(...), $config['pool']['useGlobalDoctrineIntegration']),
+                'temporal.doctrine_clear_entity_manager.finalizer',
             ];
         }
 
@@ -97,7 +101,13 @@ final class WorkflowCompilerPass implements CompilerPass
             ...$config['pool']['globalFinalizers'],
         ];
 
+        $globalLoggerReference = new Reference($config['pool']['globalLogger']);
+        $isInstalledMonolog    = InstalledVersions::willBeAvailable('symfony/monolog-bundle', MonologBundle::class, []);
 
+
+        if (!$isInstalledMonolog) {
+            $globalLoggerReference = null;
+        }
 
         foreach ($config['workers'] as $workerName => $worker) {
             $options = definition(WorkerOptions::class)
@@ -142,9 +152,17 @@ final class WorkflowCompilerPass implements CompilerPass
                 $finalizers = [
                     ...$finalizers,
                     ...array_map(doctrineFinalizerId(...), $worker['useDoctrineIntegration']),
+                    'temporal.doctrine_clear_entity_manager.finalizer',
                 ];
             }
 
+            $loggerWorkerReference = $worker['logger'] ? new Reference($worker['logger']) : null;
+
+            if (!$isInstalledMonolog) {
+                $loggerWorkerReference = null;
+            }
+
+            $loggerWorkerReference = $loggerWorkerReference ?: $globalLoggerReference;
 
             $newWorker = $container->register(sprintf('temporal.%s.worker', $workerName), WorkerInterface::class)
                 ->setFactory([$factory, 'newWorker'])
@@ -156,6 +174,7 @@ final class WorkflowCompilerPass implements CompilerPass
                         ->setArguments([
                             array_map(reference(...), array_unique($interceptors)),
                         ]),
+                    $loggerWorkerReference,
                 ])
                 ->setPublic(true)
             ;
@@ -252,6 +271,7 @@ final class WorkflowCompilerPass implements CompilerPass
             }, $configuredWorkers))
             ->setArgument('$workflows', $container->findTaggedServiceIds('temporal.workflow'))
             ->setArgument('$activities', $container->findTaggedServiceIds('temporal.activity'))
+            ->setArgument('$clientCollector', reference('temporal.client_collector.interceptor', Container::NULL_ON_INVALID_REFERENCE))
         ;
 
 

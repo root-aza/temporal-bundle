@@ -15,6 +15,7 @@ use Symfony\Bundle\FrameworkBundle\DataCollector\TemplateAwareDataCollectorInter
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
+use Vanta\Integration\Symfony\Temporal\Interceptor\ProfilerWorkflowInterceptor;
 
 final readonly class TemporalCollector implements TemplateAwareDataCollector
 {
@@ -31,6 +32,7 @@ final readonly class TemporalCollector implements TemplateAwareDataCollector
         public array $workflows,
         public array $activities,
         public array $scheduleClients,
+        public ?ProfilerWorkflowInterceptor $clientCollector = null,
     ) {
     }
 
