@@ -12,7 +12,9 @@ declare(strict_types=1);
 namespace Vanta\Integration\Symfony\Temporal\Interceptor;
 
 use Symfony\Contracts\Service\ResetInterface;
+use Temporal\Client\Update\WaitPolicy;
 use Temporal\Client\Workflow\WorkflowExecutionDescription;
+use Temporal\Client\WorkflowOptions;
 use Temporal\DataConverter\ValuesInterface;
 use Temporal\Interceptor\WorkflowClient\CancelInput;
 use Temporal\Interceptor\WorkflowClient\DescribeInput;
@@ -29,91 +31,338 @@ use Temporal\Interceptor\WorkflowClient\UpdateWithStartOutput;
 use Temporal\Interceptor\WorkflowClientCallsInterceptor;
 use Temporal\Workflow\WorkflowExecution;
 
+/**
+ * @phpstan-type StartedWorkflow array{
+ *    workflowOptions: WorkflowOptions,
+ *    workflowId: string,
+ *    workflowType: string,
+ *    workflowHeaders:  array<mixed>,
+ *    signalArguments: array<mixed>
+ * }
+ *
+ * @phpstan-type SendUpdate array{
+ *   workflowType: string|null,
+ *   workflowHeaders: array<mixed>,
+ *   workflowArguments: array<mixed>,
+ *   workflowRunId: string|null,
+ *   workflowId:  string,
+ *   updateId: string,
+ *   updateName: string,
+ *   firstExecutionRunId: string,
+ *   resultType: mixed,
+ *   waitPolicy: WaitPolicy
+ * }
+ *
+ * @phpstan-type SendSignal array{
+ *   workflowType: string|null,
+ *   signal: string,
+ *   workflowId: string,
+ *   workflowRunId: string|null,
+ *   signalArguments: array<mixed>
+ * }
+ *
+ *
+ * @phpstan-type StartedWorkflowWithSignal array{
+ *   workflowType: string,
+ *   workflowId: string,
+ *   workflowOptions: WorkflowOptions,
+ *   workflowArguments: array<mixed>,
+ *   workflowHeaders: array<mixed>,
+ *   signalArguments: array<mixed>,
+ *   signal:string,
+ * }
+ *
+ * @phpstan-type StartedWorkflowWithUpdate array{
+ *    workflowType: string,
+ *    workflowId: string,
+ *    workflowRunId: string|null,
+ *    workflowOptions: WorkflowOptions,
+ *    workflowArguments: array<mixed>,
+ *    workflowHeaders: array<mixed>,
+ *    update: string,
+ * }
+ *
+ *
+ * @phpstan-type GetResultWorkflow array{
+ *   workflowType: string|null,
+ *   workflowId: string,
+ *   workflowRunId: string|null,
+ *   timeout: int|null,
+ *   returnType: mixed
+ * }
+ *
+ *
+ * @phpstan-type SendQuery array{
+ *  workflowType: string|null,
+ *  workflowId: string,
+ *  workflowRunId: string|null,
+ *  query: string,
+ *  queryArguments: array<mixed>
+ * }
+ *
+ * @phpstan-type SendCancelWorkflow array{
+ *   workflowId: string,
+ *   workflowRunId: string|null
+ * }
+ *
+ * @phpstan-type SendTerminateWorkflow array{
+ *    workflowId: string,
+ *    workflowRunId: string|null
+ *  }
+ *
+ * @phpstan-type SendDescribe array{
+ *   workflowId: string,
+ *   workflowRunId: string|null
+ * }
+ *
+ */
 final class ProfilerWorkflowInterceptor implements WorkflowClientCallsInterceptor, ResetInterface
 {
+    /**
+     * @param StartedWorkflow|null $startedWorkflow
+     * @param SendSignal|null $sendSignal
+     * @param SendUpdate|null $sendUpdate
+     * @param StartedWorkflowWithSignal|null $startedWorkflowWithSignal
+     * @param StartedWorkflowWithUpdate|null $startedWorkflowWithUpdate
+     * @param GetResultWorkflow|null $getResultWorkflow
+     * @param SendQuery|null $sendQuery
+     * @param SendCancelWorkflow|null $sendCancelWorkflow
+     * @param SendTerminateWorkflow|null $sendTerminateWorkflow
+     * @param SendDescribe|null $sendDescribe
+     */
     public function __construct(
-        private ?StartInput $startedWorkflow = null,
-        private ?SignalInput $sendSignal = null,
-        private ?UpdateInput $sendUpdate = null,
-        private ?SignalWithStartInput $startedWorkflowWithSignal = null,
-        private ?UpdateWithStartInput $startedWorkflowWithUpdate = null,
-        private ?GetResultInput $getResultWorkflow = null,
-        private ?QueryInput $sendQuery = null,
-        private ?CancelInput $sendCancelWorkflow = null,
-        private ?TerminateInput $sendTerminateWorkflow = null,
-        private ?DescribeInput $sendDescribe = null,
+        private ?array $startedWorkflow = null,
+        private ?array $sendSignal = null,
+        private ?array $sendUpdate = null,
+        private ?array $startedWorkflowWithSignal = null,
+        private ?array $startedWorkflowWithUpdate = null,
+        private ?array $getResultWorkflow = null,
+        private ?array $sendQuery = null,
+        private ?array $sendCancelWorkflow = null,
+        private ?array $sendTerminateWorkflow = null,
+        private ?array $sendDescribe = null,
     ) {
     }
 
 
     public function start(StartInput $input, callable $next): WorkflowExecution
     {
-        $this->startedWorkflow = $input;
+        $this->startedWorkflow = [
+            'workflowOptions' => $input->options,
+            'workflowId'      => $input->workflowId,
+            'workflowType'    => $input->workflowType,
+            'workflowHeaders' => iterator_to_array($input->header->getIterator()),
+            'signalArguments' => iterator_to_array($input->arguments->getValues()),
+        ];
 
         return $next($input);
     }
 
     public function signal(SignalInput $input, callable $next): void
     {
-        $this->sendSignal = $input;
+        $this->sendSignal = [
+           'workflowType'    => $input->workflowType,
+           'signal'          => $input->signalName,
+           'workflowId'      => $input->workflowExecution->getID(),
+           'workflowRunId'   => $input->workflowExecution->getRunID(),
+           'signalArguments' => iterator_to_array($input->arguments->getValues()),
+        ];
     }
 
     public function update(UpdateInput $input, callable $next): StartUpdateOutput
     {
-        $this->sendUpdate = $input;
+        $this->sendUpdate = [
+            'workflowType'        => $input->workflowType,
+            'workflowHeaders'     => iterator_to_array($input->header->getIterator()),
+            'workflowArguments'   => iterator_to_array($input->arguments->getValues()),
+            'workflowRunId'       => $input->workflowExecution->getRunID(),
+            'workflowId'          => $input->workflowExecution->getID(),
+            'updateId'            => $input->updateId,
+            'firstExecutionRunId' => $input->firstExecutionRunId,
+            'updateName'          => $input->updateName,
+            'resultType'          => $input->resultType,
+            'waitPolicy'          => $input->waitPolicy,
+        ];
+
 
         return $next($input);
     }
 
     public function signalWithStart(SignalWithStartInput $input, callable $next): WorkflowExecution
     {
-        $this->startedWorkflowWithSignal = $input;
+        $this->startedWorkflowWithSignal = [
+            'workflowType'      => $input->workflowStartInput->workflowType,
+            'signal'            => $input->signalName,
+            'workflowId'        => $input->workflowStartInput->workflowId,
+            'workflowOptions'   => $input->workflowStartInput->options,
+            'workflowHeaders'   => iterator_to_array($input->workflowStartInput->header->getIterator()),
+            'workflowArguments' => iterator_to_array($input->workflowStartInput->arguments->getValues()),
+            'signalArguments'   => iterator_to_array($input->signalArguments->getValues()),
+        ];
 
         return $next($input);
     }
 
     public function updateWithStart(UpdateWithStartInput $input, callable $next): UpdateWithStartOutput
     {
-        $this->startedWorkflowWithUpdate = $input;
+        $this->startedWorkflowWithUpdate = [
+            'workflowType'      => $input->workflowStartInput->workflowType,
+            'update'            => $input->updateInput->updateName,
+            'workflowId'        => $input->updateInput->workflowExecution->getID(),
+            'workflowRunId'     => $input->updateInput->workflowExecution->getRunID(),
+            'workflowOptions'   => $input->workflowStartInput->options,
+            'workflowArguments' => iterator_to_array($input->workflowStartInput->arguments->getValues()),
+            'workflowHeaders'   => iterator_to_array($input->workflowStartInput->header->getIterator()),
+        ];
 
         return $next($input);
     }
 
     public function getResult(GetResultInput $input, callable $next): ?ValuesInterface
     {
-        $this->getResultWorkflow = $input;
+        $this->getResultWorkflow = [
+            'workflowType'  => $input->workflowType,
+            'workflowId'    => $input->workflowExecution->getID(),
+            'workflowRunId' => $input->workflowExecution->getRunID(),
+            'timeout'       => $input->timeout,
+            'returnType'    => $input->type,
+        ];
 
         return $next($input);
     }
 
     public function query(QueryInput $input, callable $next): ?ValuesInterface
     {
-        $this->sendQuery = $input;
+        $this->sendQuery = [
+            'workflowType'   => $input->workflowType,
+            'workflowId'     => $input->workflowExecution->getID(),
+            'workflowRunId'  => $input->workflowExecution->getRunID(),
+            'query'          => $input->queryType,
+            'queryArguments' => iterator_to_array($input->arguments->getValues()),
+        ];
+
 
         return $next($input);
     }
 
     public function cancel(CancelInput $input, callable $next): void
     {
-        $this->sendCancelWorkflow = $input;
+        $this->sendCancelWorkflow = [
+            'workflowId'    => $input->workflowExecution->getID(),
+            'workflowRunId' => $input->workflowExecution->getRunID(),
+        ];
     }
 
     public function terminate(TerminateInput $input, callable $next): void
     {
-        $this->sendTerminateWorkflow = $input;
+        $this->sendTerminateWorkflow = [
+            'workflowId'    => $input->workflowExecution->getID(),
+            'workflowRunId' => $input->workflowExecution->getRunID(),
+        ];
     }
 
     public function describe(DescribeInput $input, callable $next): WorkflowExecutionDescription
     {
-        $this->sendDescribe = $input;
+        $this->sendDescribe = [
+            'workflowId'    => $input->workflowExecution->getID(),
+            'workflowRunId' => $input->workflowExecution->getRunID(),
+            'namespace'     => $input->namespace,
+        ];
+
 
         return $next($input);
     }
 
-    public function getStartedWorkflow(): StartInput
+
+    /**
+     * @return StartedWorkflow|null
+     */
+    public function getStartedWorkflow(): ?array
     {
         return $this->startedWorkflow;
     }
+
+
+    /**
+     * @return SendSignal|null
+     */
+    public function getSendSignal(): ?array
+    {
+        return $this->sendSignal;
+    }
+
+
+    /**
+     * @return SendUpdate|null
+     */
+    public function getSendUpdate(): ?array
+    {
+        return $this->sendUpdate;
+    }
+
+
+    /**
+     * @return StartedWorkflowWithSignal|null
+     */
+    public function getStartedWorkflowWithSignal(): ?array
+    {
+        return $this->startedWorkflowWithSignal;
+    }
+
+
+    /**
+     * @return StartedWorkflowWithUpdate|null
+     */
+    public function getStartedWorkflowWithUpdate(): ?array
+    {
+        return $this->startedWorkflowWithUpdate;
+    }
+
+
+    /**
+     * @return GetResultWorkflow|null
+     */
+    public function getGetResultWorkflow(): ?array
+    {
+        return $this->getResultWorkflow;
+    }
+
+
+    /**
+     * @return SendQuery|null
+     */
+    public function getSendQuery(): ?array
+    {
+        return $this->sendQuery;
+    }
+
+
+    /**
+     * @return SendCancelWorkflow|null
+     */
+    public function getSendCancelWorkflow(): ?array
+    {
+        return $this->sendCancelWorkflow;
+    }
+
+
+    /**
+     * @return SendTerminateWorkflow|null
+     */
+    public function getSendTerminateWorkflow(): ?array
+    {
+        return $this->sendTerminateWorkflow;
+    }
+
+
+    /**
+     * @return SendDescribe|null
+     */
+    public function getSendDescribe(): ?array
+    {
+        return $this->sendDescribe;
+    }
+
 
     public function reset(): void
     {
@@ -127,50 +376,5 @@ final class ProfilerWorkflowInterceptor implements WorkflowClientCallsIntercepto
         $this->sendCancelWorkflow        = null;
         $this->sendTerminateWorkflow     = null;
         $this->sendDescribe              = null;
-    }
-
-    public function getSendSignal(): ?SignalInput
-    {
-        return $this->sendSignal;
-    }
-
-    public function getSendUpdate(): ?UpdateInput
-    {
-        return $this->sendUpdate;
-    }
-
-    public function getStartedWorkflowWithSignal(): ?SignalWithStartInput
-    {
-        return $this->startedWorkflowWithSignal;
-    }
-
-    public function getStartedWorkflowWithUpdate(): ?UpdateWithStartInput
-    {
-        return $this->startedWorkflowWithUpdate;
-    }
-
-    public function getGetResultWorkflow(): ?GetResultInput
-    {
-        return $this->getResultWorkflow;
-    }
-
-    public function getSendQuery(): ?QueryInput
-    {
-        return $this->sendQuery;
-    }
-
-    public function getSendCancelWorkflow(): ?CancelInput
-    {
-        return $this->sendCancelWorkflow;
-    }
-
-    public function getSendTerminateWorkflow(): ?TerminateInput
-    {
-        return $this->sendTerminateWorkflow;
-    }
-
-    public function getSendDescribe(): ?DescribeInput
-    {
-        return $this->sendDescribe;
     }
 }
