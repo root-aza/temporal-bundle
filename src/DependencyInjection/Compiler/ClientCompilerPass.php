@@ -41,10 +41,12 @@ final class ClientCompilerPass implements CompilerPass
         $globalInterceptors = [];
 
         if ($container->getParameter('kernel.debug')) {
-            $globalInterceptors[] = $container->register(
+            $container->register(
                 'temporal.client_collector.interceptor',
                 ProfilerWorkflowInterceptor::class
             );
+
+            $globalInterceptors[] = reference('temporal.client_collector.interceptor');
         }
 
         foreach ($config['clients'] as $name => $client) {
