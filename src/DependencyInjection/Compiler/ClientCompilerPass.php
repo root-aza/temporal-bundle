@@ -100,6 +100,7 @@ final class ClientCompilerPass implements CompilerPass
 
         $container->getDefinition('temporal.collector')
             ->setArgument('$clients', $clients)
+            ->setArgument('$clientCollector', reference('temporal.client_collector.interceptor'))
         ;
     }
 }

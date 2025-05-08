@@ -16,7 +16,6 @@ use Spiral\RoadRunner\Environment as RoadRunnerEnvironment;
 use Symfony\Bundle\MonologBundle\MonologBundle;
 use Symfony\Component\DependencyInjection\Argument\ServiceClosureArgument;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface as CompilerPass;
-use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
@@ -271,7 +270,6 @@ final class WorkflowCompilerPass implements CompilerPass
             }, $configuredWorkers))
             ->setArgument('$workflows', $container->findTaggedServiceIds('temporal.workflow'))
             ->setArgument('$activities', $container->findTaggedServiceIds('temporal.activity'))
-            ->setArgument('$clientCollector', reference('temporal.client_collector.interceptor', Container::NULL_ON_INVALID_REFERENCE))
         ;
 
 
