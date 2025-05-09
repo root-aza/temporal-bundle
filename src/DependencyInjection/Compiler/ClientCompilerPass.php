@@ -40,14 +40,8 @@ final class ClientCompilerPass implements CompilerPass
 
         $globalInterceptors = [];
 
-        if ($container->getParameter('kernel.debug')) {
-            $container->register(
-                'temporal.client_collector.interceptor',
-                ProfilerWorkflowInterceptor::class
-            );
 
-            $globalInterceptors[] = reference('temporal.client_collector.interceptor');
-        }
+        $collectorInterceptors = [];
 
         foreach ($config['clients'] as $name => $client) {
             $options = definition(ClientOptions::class)
@@ -62,6 +56,17 @@ final class ClientCompilerPass implements CompilerPass
             }
 
 
+            if ($container->getParameter('kernel.debug')) {
+                $collectorId = sprintf('temporal.workflow_client_collector_%s.interceptor', $name);
+
+                $container->register($collectorId, ProfilerWorkflowInterceptor::class)
+                    ->setArgument('$clientName', $name)
+                ;
+
+                $collectorInterceptors[] = reference($collectorId);
+            }
+
+
             $id = sprintf('temporal.%s.client', $name);
 
             $container->register($id, WorkflowClient::class)
@@ -72,7 +77,7 @@ final class ClientCompilerPass implements CompilerPass
                     '$converter'           => new Reference($client['dataConverter']),
                     '$interceptorProvider' => definition(SimplePipelineProvider::class)
                         ->setArguments([
-                            [...array_map(reference(...), $client['interceptors']), ...$globalInterceptors],
+                            [...array_map(reference(...), $client['interceptors']), ...$collectorInterceptors],
                         ]),
                 ]);
 
@@ -102,7 +107,7 @@ final class ClientCompilerPass implements CompilerPass
 
         $container->getDefinition('temporal.collector')
             ->setArgument('$clients', $clients)
-            ->setArgument('$clientCollector', reference('temporal.client_collector.interceptor'))
+            ->setArgument('$collectorWorkflowClientInterceptors', $collectorInterceptors)
         ;
     }
 }
