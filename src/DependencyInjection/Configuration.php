@@ -826,9 +826,10 @@ final class Configuration implements BundleConfiguration
                             ->prototype('variable')->end()
                         ->end()
                             ->arrayNode('retryOptions')
+                                ->addDefaultsIfNotSet()
                                 ->children()
                                     ->scalarNode('initialInterval')
-                                        ->defaultNull()
+                                        ->defaultValue('5 seconds')
                                         ->example('30 seconds')
                                         ->info('Backoff interval for the first retry.')
                                         ->validate()
@@ -868,6 +869,7 @@ final class Configuration implements BundleConfiguration
                                                     If not set or set to 0, it means unlimited
                                                 STRING
                                         )
+                                        ->defaultValue(3)
                                     ->end()
                                     ->arrayNode('nonRetryableExceptions')
                                         ->scalarPrototype()
