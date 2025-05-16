@@ -176,6 +176,8 @@ final class ProfilerWorkflowInterceptor implements WorkflowClientCallsIntercepto
             'workflowRunId'   => $input->workflowExecution->getRunID(),
             'signalArguments' => $varCloner->cloneVar(iterator_to_array($input->arguments->getValues())),
         ];
+
+        $next($input);
     }
 
     public function update(UpdateInput $input, callable $next): StartUpdateOutput
@@ -271,6 +273,8 @@ final class ProfilerWorkflowInterceptor implements WorkflowClientCallsIntercepto
             'workflowId'    => $input->workflowExecution->getID(),
             'workflowRunId' => $input->workflowExecution->getRunID(),
         ];
+
+        $next($input);
     }
 
     public function terminate(TerminateInput $input, callable $next): void
@@ -279,6 +283,8 @@ final class ProfilerWorkflowInterceptor implements WorkflowClientCallsIntercepto
             'workflowId'    => $input->workflowExecution->getID(),
             'workflowRunId' => $input->workflowExecution->getRunID(),
         ];
+
+        $next($input);
     }
 
     public function describe(DescribeInput $input, callable $next): WorkflowExecutionDescription

@@ -349,6 +349,7 @@ final class Configuration implements BundleConfiguration
             ->children()
                 ->arrayNode('workers')
                 ->useAttributeAsKey('name')
+                ->normalizeKeys(false)
                     ->arrayPrototype()
                     ->children()
                         ->scalarNode('maxConcurrentActivityExecutionSize')
@@ -696,6 +697,7 @@ final class Configuration implements BundleConfiguration
                     'interceptors'  => [],
                 ]])
                 ->useAttributeAsKey('name')
+                ->normalizeKeys(false)
         ;
 
         $this->addClient($clients, $dateIntervalValidator);
@@ -711,6 +713,7 @@ final class Configuration implements BundleConfiguration
                 'interceptors'  => [],
             ]])
             ->useAttributeAsKey('name')
+            ->normalizeKeys(false)
         ;
 
         $this->addClient($scheduleClients, $dateIntervalValidator);

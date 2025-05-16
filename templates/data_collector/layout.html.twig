@@ -101,7 +101,7 @@
         {% endif %}
 
 
-        {% if dispatchCall.workflowRunId is defined %}
+        {% if dispatchCall.workflowRunId is defined and dispatchCall.workflowRunId != '' %}
             <tr>
                 <th scope="row" class="font-normal">Workflow Run Id</th>
                 <td>{{ dispatchCall.workflowRunId }}</td>
@@ -348,13 +348,6 @@
                         {% endfor %}
 
 
-                        {% for sendDescribe  in dispatchCall.sendTerminateWorkflow  %}
-                            {% set discr = random() %}
-
-                            {{ macros.operation(sendDescribe, discr, loop, 'sendDescribe', dispatchCall.clientName) }}
-                        {% endfor %}
-
-
                         {% for getResultWorkflow in dispatchCall.getResultWorkflow  %}
                             {% set discr = random() %}
 
@@ -365,6 +358,26 @@
                     {% endfor %}
 
 
+                {% endif %}
+            </div>
+        </div>
+
+
+        <div class="tab {{ collector.isEmptyCallScheduleClients ? 'disabled' }}">
+            <h3 class="tab-title">Schedule client calls</h3>
+            <div class="tab-content">
+                {% if collector.isEmptyCallScheduleClients %}
+                    <div class="empty">
+                        <p>Not found calls</p>
+                    </div>
+                {% else %}
+                    {% for dispatchCall in collector.collectorScheduleClientInterceptors %}
+                        {% for sendDescribe  in dispatchCall.sendTerminateWorkflow  %}
+                            {% set discr = random() %}
+
+                            {{ macros.operation(sendDescribe, discr, loop, 'sendDescribe', dispatchCall.clientName) }}
+                        {% endfor %}
+                    {% endfor %}
                 {% endif %}
             </div>
         </div>
