@@ -52,10 +52,12 @@
     "phpunit/phpunit": "^10.3",
     "symfony/monolog-bundle": "^3.8",
     "symfony/web-profiler-bundle": "^6.0|^7.0",
-    "vanta/temporal-sentry": "^0.2-beta"
+    "vanta/temporal-sentry": "^0.2",
+    "vanta/temporal-doctrine": "^0.1"
   },
   "suggest": {
-    "vanta/temporal-sentry": "Integration for sentry"
+    "vanta/temporal-sentry": "Integration for sentry",
+    "vanta/temporal-doctrine": "Integration for doctrine"
   },
   "config": {
     "allow-plugins": {

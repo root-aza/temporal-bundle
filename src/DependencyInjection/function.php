@@ -200,9 +200,20 @@ function doctrineInterceptorId(string $entityManager): string
  *
  * @return non-empty-string
  */
-function doctrineFinalizerId(string $entityManager): string
+function doctrinePingFinalizerId(string $entityManager): string
 {
     return sprintf('temporal.doctrine_ping_connection_%s.finalizer', $entityManager);
+}
+
+
+/**
+ * @internal
+ *
+ * @return non-empty-string
+ */
+function doctrineClearEntityManagerFinalizerId(): string
+{
+    return 'temporal.doctrine_clear_entity_manager.finalizer';
 }
 
 

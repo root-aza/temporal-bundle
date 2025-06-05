@@ -12,21 +12,24 @@ declare(strict_types=1);
 namespace Vanta\Integration\Symfony\Temporal\DependencyInjection\Compiler;
 
 use Doctrine\ORM\EntityManager;
-use Sentry\State\HubInterface as Hub;
 use Symfony\Bundle\MonologBundle\MonologBundle;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface as CompilerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\definition;
-use function Vanta\Integration\Symfony\Temporal\DependencyInjection\doctrineFinalizerId;
+use function Vanta\Integration\Symfony\Temporal\DependencyInjection\doctrineClearEntityManagerFinalizerId;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\doctrineInterceptorId;
+use function Vanta\Integration\Symfony\Temporal\DependencyInjection\doctrinePingFinalizerId;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\loggingDoctrineOpenTransactionInterceptorId;
+use function Vanta\Integration\Symfony\Temporal\DependencyInjection\referenceLogger;
 
-use Vanta\Integration\Symfony\Temporal\Finalizer\DoctrinePingConnectionFinalizer;
+use Vanta\Integration\Symfony\Temporal\Finalizer\DoctrineFinalizer;
 use Vanta\Integration\Symfony\Temporal\InstalledVersions;
-use Vanta\Integration\Symfony\Temporal\Interceptor\DoctrineActivityInboundInterceptor;
-use Vanta\Integration\Symfony\Temporal\Interceptor\DoctrineOpenTransactionInterceptor;
+use Vanta\Integration\Temporal\Doctrine\Finalizer\DoctrineClearEntityManagerFinalizer;
+use Vanta\Integration\Temporal\Doctrine\Finalizer\DoctrinePingConnectionFinalizer;
+use Vanta\Integration\Temporal\Doctrine\Interceptor\DoctrineHandlerThrowsActivityInboundInterceptor;
+use Vanta\Integration\Temporal\Doctrine\Interceptor\PsrLoggingDoctrineOpenTransactionInterceptor;
 
 final readonly class DoctrineCompilerPass implements CompilerPass
 {
@@ -44,19 +47,24 @@ final readonly class DoctrineCompilerPass implements CompilerPass
         $entityManagers = $container->getParameter('doctrine.entity_managers');
 
         foreach ($entityManagers as $entityManager => $id) {
-            $finalizerId = doctrineFinalizerId($entityManager);
+            $finalizerId = doctrinePingFinalizerId($entityManager);
 
-            $container->register($finalizerId, DoctrinePingConnectionFinalizer::class)
+            $container->register($finalizerId, DoctrineFinalizer::class)
                 ->setArguments([
-                    new Reference('doctrine'),
-                    $entityManager,
+                    definition(DoctrinePingConnectionFinalizer::class)
+                        ->setArguments([
+                            new Reference('doctrine'),
+                            $entityManager,
+                            referenceLogger(),
+                        ]),
                 ])
                 ->addTag('temporal.finalizer')
             ;
 
+
             $interceptorId = doctrineInterceptorId($entityManager);
 
-            $container->register($interceptorId, DoctrineActivityInboundInterceptor::class)
+            $container->register($interceptorId, DoctrineHandlerThrowsActivityInboundInterceptor::class)
                 ->setArguments([
                     definition(DoctrinePingConnectionFinalizer::class)
                         ->setArguments([
@@ -66,6 +74,18 @@ final readonly class DoctrineCompilerPass implements CompilerPass
                 ])
             ;
         }
+
+        $container->register(doctrineClearEntityManagerFinalizerId(), DoctrineFinalizer::class)
+            ->setArguments([
+                definition(DoctrineClearEntityManagerFinalizer::class)
+                    ->setArguments([
+                        new Reference('doctrine'),
+                    ]),
+            ])
+            ->addTag('temporal.finalizer')
+        ;
+
+
 
         if (!InstalledVersions::willBeAvailable('symfony/monolog-bundle', MonologBundle::class, [])) {
             return;
@@ -80,9 +100,9 @@ final readonly class DoctrineCompilerPass implements CompilerPass
 
 
         foreach ($connections as $connectionName => $connectionId) {
-            $container->register(loggingDoctrineOpenTransactionInterceptorId($connectionName), DoctrineOpenTransactionInterceptor::class)
+            $container->register(loggingDoctrineOpenTransactionInterceptorId($connectionName), PsrLoggingDoctrineOpenTransactionInterceptor::class)
                 ->setArguments([
-                    new Reference(Hub::class),
+                    referenceLogger(),
                     new Reference($connectionId),
                 ])
             ;

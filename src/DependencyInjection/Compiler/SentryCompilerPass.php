@@ -25,13 +25,53 @@ use function Vanta\Integration\Symfony\Temporal\DependencyInjection\referenceLog
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\trackingSentryDoctrineOpenTransactionInterceptorId;
 
 use Vanta\Integration\Symfony\Temporal\InstalledVersions;
+use Vanta\Integration\Temporal\Doctrine\Interceptor\SentryDoctrineOpenTransactionInterceptor;
 use Vanta\Integration\Temporal\Sentry\SentryActivityInboundInterceptor;
-use Vanta\Integration\Temporal\Sentry\SentryDoctrineOpenTransactionInterceptor;
 use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
 
 final readonly class SentryCompilerPass implements CompilerPass
 {
     public function process(ContainerBuilder $container): void
+    {
+        $this->registerSentryInterceptors($container);
+        $this->registerDoctrineInterceptors($container);
+    }
+
+
+    private function registerDoctrineInterceptors(ContainerBuilder $container): void
+    {
+        if (!InstalledVersions::willBeAvailable('sentry/sentry-symfony', SentryBundle::class, [])) {
+            return;
+        }
+
+        if (!InstalledVersions::willBeAvailable('vanta/temporal-doctrine', SentryDoctrineOpenTransactionInterceptor::class, [])) {
+            return;
+        }
+
+        if (!InstalledVersions::willBeAvailable('doctrine/doctrine-bundle', EntityManager::class, [])) {
+            return;
+        }
+
+        if (!$container->hasParameter('doctrine.connections')) {
+            return;
+        }
+
+        /** @var array<non-empty-string, non-empty-string> $connections */
+        $connections = $container->getParameter('doctrine.connections');
+
+
+        foreach ($connections as $connectionName => $connectionId) {
+            $container->register(trackingSentryDoctrineOpenTransactionInterceptorId($connectionName), SentryDoctrineOpenTransactionInterceptor::class)
+                ->setArguments([
+                    referenceLogger(),
+                    new Reference($connectionId),
+                ])
+            ;
+        }
+    }
+
+
+    private function registerSentryInterceptors(ContainerBuilder $container): void
     {
         if (!InstalledVersions::willBeAvailable('sentry/sentry-symfony', SentryBundle::class, [])) {
             return;
@@ -68,27 +108,5 @@ final readonly class SentryCompilerPass implements CompilerPass
                 new Reference('temporal.sentry_stack_trace_builder'),
             ])
         ;
-
-
-        if (!InstalledVersions::willBeAvailable('doctrine/doctrine-bundle', EntityManager::class, [])) {
-            return;
-        }
-
-        if (!$container->hasParameter('doctrine.connections')) {
-            return;
-        }
-
-        /** @var array<non-empty-string, non-empty-string> $connections */
-        $connections = $container->getParameter('doctrine.connections');
-
-
-        foreach ($connections as $connectionName => $connectionId) {
-            $container->register(trackingSentryDoctrineOpenTransactionInterceptorId($connectionName), SentryDoctrineOpenTransactionInterceptor::class)
-                ->setArguments([
-                    referenceLogger(),
-                    new Reference($connectionId),
-                ])
-            ;
-        }
     }
 }

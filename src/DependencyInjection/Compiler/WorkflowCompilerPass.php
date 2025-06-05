@@ -28,7 +28,8 @@ use Vanta\Integration\Symfony\Temporal\DependencyInjection\Configuration;
 
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\dateIntervalDefinition;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\definition;
-use function Vanta\Integration\Symfony\Temporal\DependencyInjection\doctrineFinalizerId;
+use function Vanta\Integration\Symfony\Temporal\DependencyInjection\doctrineClearEntityManagerFinalizerId;
+use function Vanta\Integration\Symfony\Temporal\DependencyInjection\doctrinePingFinalizerId;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\getInterceptorsForIntegration;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\reference;
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\referenceLogger;
@@ -90,8 +91,8 @@ final class WorkflowCompilerPass implements CompilerPass
         if ($config['pool']['useGlobalDoctrineIntegration'] != []) {
             $globalFinalizers = [
                 ...$globalFinalizers,
-                ...array_map(doctrineFinalizerId(...), $config['pool']['useGlobalDoctrineIntegration']),
-                'temporal.doctrine_clear_entity_manager.finalizer',
+                ...array_map(doctrinePingFinalizerId(...), $config['pool']['useGlobalDoctrineIntegration']),
+                doctrineClearEntityManagerFinalizerId(),
             ];
         }
 
@@ -150,8 +151,8 @@ final class WorkflowCompilerPass implements CompilerPass
             if ($worker['useDoctrineIntegration'] != []) {
                 $finalizers = [
                     ...$finalizers,
-                    ...array_map(doctrineFinalizerId(...), $worker['useDoctrineIntegration']),
-                    'temporal.doctrine_clear_entity_manager.finalizer',
+                    ...array_map(doctrinePingFinalizerId(...), $worker['useDoctrineIntegration']),
+                    doctrineClearEntityManagerFinalizerId(),
                 ];
             }
 
