@@ -36,6 +36,14 @@ use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
  *  globalInterceptors: array<non-empty-string>,
  *  globalFinalizers: array<non-empty-string>,
  *  globalLogger: non-empty-string,
+ *  workerApiKey: ?non-empty-string,
+ *  testing: array{
+ *    enabled: bool,
+ *    activityMocker: 'in_memory'|'rr_kv'| non-empty-string,
+ *    defaultTestService: non-empty-string,
+ *    testServices: non-empty-array<array{address: non-empty-string}>
+ *  },
+ *  workerFactory: ?class-string<WorkerFactoryInterface>,
  *  useGlobalSentryIntegration: bool,
  *  useGlobalDoctrineIntegration: array<non-empty-string>,
  *  useGlobalLoggingDoctrineOpenTransaction: array<non-empty-string>,
@@ -60,6 +68,7 @@ use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
  *
  * @phpstan-type Client array{
  *  name: non-empty-string,
+ *  apiKey: ?non-empty-string,
  *  address: non-empty-string,
  *  namespace: non-empty-string,
  *  identity: ?non-empty-string,
@@ -75,6 +84,7 @@ use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
  *   name: non-empty-string,
  *   address: non-empty-string,
  *   namespace: non-empty-string,
+ *   apiKey: ?non-empty-string,
  *   identity: ?non-empty-string,
  *   dataConverter: non-empty-string,
  *   queryRejectionCondition?: ?int,
@@ -112,7 +122,6 @@ use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
  * @phpstan-type RawConfiguration array{
  *  defaultClient: non-empty-string,
  *  defaultScheduleClient: non-empty-string,
- *  workerFactory: class-string<WorkerFactoryInterface>,
  *  clients: array<non-empty-string, Client>,
  *  scheduleClients: array<non-empty-string, ScheduleClient>,
  *  workers: array<non-empty-string, Worker>,
@@ -245,31 +254,13 @@ final class Configuration implements BundleConfiguration
             ->fixXmlConfig('client', 'clients')
             ->fixXmlConfig('worker', 'workers')
             ->fixXmlConfig('scheduleClient', 'scheduleClients')
+            ->fixXmlConfig('testService', 'testServices')
             ->children()
                 ->scalarNode('defaultClient')
                     ->defaultValue('default')
                 ->end()
                 ->scalarNode('defaultScheduleClient')
                     ->defaultValue('default')
-                ->end()
-                ->scalarNode('workerFactory')->defaultValue(WorkerFactory::class)
-                    ->validate()
-                        ->ifTrue(static function (string $v): bool {
-                            $interfaces = class_implements($v);
-
-                            if (!$interfaces) {
-                                return true;
-                            }
-
-
-                            if ($interfaces[WorkerFactoryInterface::class] ?? false) {
-                                return false;
-                            }
-
-                            return true;
-                        })
-                        ->thenInvalid(sprintf('workerFactory does not implement interface: %s', WorkerFactoryInterface::class))
-                    ->end()
                 ->end()
             ->end()
             ->children()
@@ -291,7 +282,7 @@ final class Configuration implements BundleConfiguration
                             ->end()
                             ->defaultValue([])
                             ->scalarPrototype()->end()
-                            ->info('Global interceptors connect to all workers')
+                            ->info('Global interceptors connect to all workers/clients')
                         ->end()
 
                         ->arrayNode('globalFinalizers')
@@ -341,6 +332,65 @@ final class Configuration implements BundleConfiguration
                             ->defaultValue([])
                             ->scalarPrototype()->end()
                             ->info('Attaches an interceptor to all workers that reports outstanding transactions in sentry after the activity has completed. You need to pass a list to connection(dbal).')
+                        ->end()
+
+                        ->arrayNode('testing')
+                            ->addDefaultsIfNotSet()
+                            ->children()
+                                ->booleanNode('enabled')
+                                    ->defaultFalse()
+                                ->end()
+                                ->scalarNode('activityMocker')
+                                    ->defaultValue('in_memory')
+                                    ->info('Allowed value: in_memory or rr_kv or service id if custom activityMocker')
+                                ->end()
+                                ->scalarNode('defaultTestService')
+                                    ->defaultValue('default')
+                                ->end()
+                                ->arrayNode('testServices')
+                                    ->defaultValue(['default' => [
+                                        'address' => (new EnvConfigurator('TEMPORAL_ADDRESS'))->__toString(),
+                                    ]])
+                                    ->useAttributeAsKey('name')
+                                    ->normalizeKeys(false)
+                                    ->arrayPrototype()
+                                        ->children()
+                                            ->scalarNode('address')
+                                                ->defaultValue((new EnvConfigurator('TEMPORAL_ADDRESS'))->__toString())->cannotBeEmpty()
+                                            ->end()
+                                        ->end()
+                                    ->end()
+                                ->end()
+                            ->end()
+                        ->end()
+
+                        ->scalarNode('workerApiKey')
+                            ->defaultNull()
+                            ->info('Set the authentication token for API calls.')
+                        ->end()
+
+                        ->scalarNode('workerFactory')->defaultValue(null)
+                            ->validate()
+                                ->ifTrue(static function (?string $v): bool {
+                                    if ($v == null) {
+                                        return false;
+                                    }
+
+                                    $interfaces = class_implements($v);
+
+                                    if (!$interfaces) {
+                                        return true;
+                                    }
+
+
+                                    if ($interfaces[WorkerFactoryInterface::class] ?? false) {
+                                        return false;
+                                    }
+
+                                    return true;
+                                })
+                                ->thenInvalid(sprintf('workerFactory does not implement interface: %s', WorkerFactoryInterface::class))
+                            ->end()
                         ->end()
                     ->end()
                 ->end()
@@ -695,6 +745,7 @@ final class Configuration implements BundleConfiguration
                     'dataConverter' => 'temporal.data_converter',
                     'grpcContext'   => ['timeout' => ['value' => 5, 'format' => DateInterval::FORMAT_SECONDS]],
                     'interceptors'  => [],
+                    'apiKey'        => null,
                 ]])
                 ->useAttributeAsKey('name')
                 ->normalizeKeys(false)
@@ -711,6 +762,7 @@ final class Configuration implements BundleConfiguration
                 'dataConverter' => 'temporal.data_converter',
                 'grpcContext'   => ['timeout' => ['value' => 5, 'format' => DateInterval::FORMAT_SECONDS]],
                 'interceptors'  => [],
+                'apiKey'        => null,
             ]])
             ->useAttributeAsKey('name')
             ->normalizeKeys(false)
@@ -743,6 +795,10 @@ final class Configuration implements BundleConfiguration
                 ->end()
                 ->scalarNode('dataConverter')
                     ->cannotBeEmpty()->defaultValue('temporal.data_converter')
+                ->end()
+                ->scalarNode('apiKey')
+                    ->defaultNull()
+                    ->info('Set the authentication token for API calls.')
                 ->end()
                 ->scalarNode('clientKey')
                     ->example('%kernel.project_dir%/resource/temporal.key')

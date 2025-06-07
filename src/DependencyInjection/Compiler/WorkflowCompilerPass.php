@@ -20,10 +20,16 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 use Temporal\Interceptor\SimplePipelineProvider;
+use Temporal\Testing;
+use Temporal\Testing\ActivityMocker;
+use Temporal\Worker\ActivityInvocationCache\InMemoryActivityInvocationCache;
+use Temporal\Worker\ActivityInvocationCache\RoadRunnerActivityInvocationCache;
+use Temporal\Worker\ServiceCredentials;
 use Temporal\Worker\Transport\Goridge;
 use Temporal\Worker\WorkerFactoryInterface;
 use Temporal\Worker\WorkerInterface;
 use Temporal\Worker\WorkerOptions;
+use Temporal\WorkerFactory;
 use Vanta\Integration\Symfony\Temporal\DependencyInjection\Configuration;
 
 use function Vanta\Integration\Symfony\Temporal\DependencyInjection\dateIntervalDefinition;
@@ -52,22 +58,81 @@ final class WorkflowCompilerPass implements CompilerPass
         /** @var RawConfiguration $config */
         $config = $container->getParameter('temporal.config');
 
-        $factory = $container->register('temporal.worker_factory', WorkerFactoryInterface::class)
-            ->setFactory([$config["workerFactory"], 'create'])
-            ->setArguments([
-                new Reference($config['pool']['dataConverter']),
-                definition(Goridge::class)
-                    ->setFactory([Goridge::class, 'create'])
+        $workerFactoryClass = WorkerFactory::class;
+
+        $factoryArguments = [
+            '$credentials' => null,
+            '$converter'   => new Reference($config['pool']['dataConverter']),
+            '$rpc'         => definition(Goridge::class)
+                ->setFactory([Goridge::class, 'create'])
+                ->setArguments([
+                    definition(RoadRunnerEnvironment::class)
+                        ->setFactory([Environment::class, 'create'])
+                        ->setArguments([
+                            ['RR_RPC' => $config['pool']['roadrunnerRPC']],
+                        ]),
+                ]),
+        ];
+
+
+        if ($config['pool']['testing']['enabled']) {
+            $workerFactoryClass                 = Testing\WorkerFactory::class;
+            $factoryArguments['$activityCache'] = new Reference($config['pool']['testing']['activityMocker']);
+
+            if ($config['pool']['testing']['activityMocker'] == 'in_memory') {
+                $id = 'temporal.testing.in_memory.activity_cache';
+
+                $container->register($id, InMemoryActivityInvocationCache::class)
                     ->setArguments([
-                        definition(RoadRunnerEnvironment::class)
-                            ->setFactory([Environment::class, 'create'])
-                            ->setArguments([
-                                ['RR_RPC' => $config['pool']['roadrunnerRPC']],
-                            ]),
-                    ]),
-            ])
+                        new Reference($config['pool']['dataConverter']),
+                    ])
+                ;
+
+                $factoryArguments['$activityCache'] = new Reference($id);
+            }
+
+            if ($config['pool']['testing']['activityMocker'] == 'rr_kv') {
+                $id = 'temporal.testing.rr_kv.activity_cache';
+
+                $container->register($id, RoadRunnerActivityInvocationCache::class)
+                    ->setArguments([
+                        $config['pool']['roadrunnerRPC'],
+                        'test',
+                        new Reference($config['pool']['dataConverter']),
+                    ])
+                ;
+
+                $factoryArguments['$activityCache'] = new Reference($id);
+            }
+
+            $container->register('temporal.testing.activity_mocker', ActivityMocker::class)
+                ->setArguments([
+                    $factoryArguments['$activityCache'],
+                ])
+                ->setPublic(true)
+            ;
+
+            $container->setAlias(ActivityMocker::class, 'temporal.testing.activity_mocker');
+        }
+
+        if ($config['pool']['workerApiKey'] != null) {
+            $factoryArguments['$credentials'] = definition(ServiceCredentials::class)
+                ->setFactory([ServiceCredentials::class, 'create'])
+                ->addMethodCall('withApiKey', [$config['pool']['workerApiKey']], true)
+            ;
+        }
+
+        if ($config['pool']['workerFactory'] != null) {
+            $workerFactoryClass = $config['pool']['workerFactory'];
+        }
+
+
+        $factory = $container->register('temporal.worker_factory', WorkerFactoryInterface::class)
+            ->setFactory([$workerFactoryClass, 'create'])
+            ->setArguments($factoryArguments)
             ->setPublic(true)
         ;
+
 
         $configuredWorkers        = [];
         $activitiesWithoutWorkers = [];

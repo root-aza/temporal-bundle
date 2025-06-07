@@ -72,6 +72,7 @@ function referenceLogger(): Reference
  *  address: non-empty-string,
  *  clientKey: ?non-empty-string,
  *  clientPem: ?non-empty-string,
+ *  apiKey: ?non-empty-string,
  *  grpcContext: array<string, mixed>
  * } $client
  */
@@ -89,6 +90,11 @@ function grpcClient(array $client): Definition
             $client['clientPem'],
             null, // Overwrite server name
         ])->setFactory([GrpcServiceClient::class, 'createSSL']);
+    }
+
+
+    if ($client['apiKey'] != null) {
+        $serviceClient->addMethodCall('withAuthKey', [$client['apiKey']], true);
     }
 
     return $serviceClient->addMethodCall('withContext', [

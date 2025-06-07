@@ -38,9 +38,7 @@ final class ClientCompilerPass implements CompilerPass
         $config  = $container->getParameter('temporal.config');
         $clients = [];
 
-        $globalInterceptors = [];
-
-
+        $globalInterceptors    = array_map(reference(...), $config['pool']['globalInterceptors']);
         $collectorInterceptors = [];
 
         foreach ($config['clients'] as $name => $client) {
@@ -66,7 +64,6 @@ final class ClientCompilerPass implements CompilerPass
                 $collectorInterceptors[] = reference($collectorId);
             }
 
-
             $id = sprintf('temporal.%s.client', $name);
 
             $container->register($id, WorkflowClient::class)
@@ -77,7 +74,11 @@ final class ClientCompilerPass implements CompilerPass
                     '$converter'           => new Reference($client['dataConverter']),
                     '$interceptorProvider' => definition(SimplePipelineProvider::class)
                         ->setArguments([
-                            [...array_map(reference(...), $client['interceptors']), ...$collectorInterceptors],
+                            [
+                                ...array_map(reference(...), $client['interceptors']),
+                                ...$collectorInterceptors,
+                                ...$globalInterceptors,
+                            ],
                         ]),
                 ]);
 
