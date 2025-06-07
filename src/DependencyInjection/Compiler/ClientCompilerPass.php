@@ -13,6 +13,7 @@ namespace Vanta\Integration\Symfony\Temporal\DependencyInjection\Compiler;
 
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface as CompilerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Reference;
 use Temporal\Client\ClientOptions;
 use Temporal\Client\WorkflowClient as GrpcWorkflowClient;
@@ -40,6 +41,12 @@ final class ClientCompilerPass implements CompilerPass
 
         $globalInterceptors    = array_map(reference(...), $config['pool']['globalInterceptors']);
         $collectorInterceptors = [];
+
+
+        if (!in_array($config['defaultClient'], array_keys($config['clients']))) {
+            throw new InvalidArgumentException(sprintf('No default WorkflowClient "%s" configured', $config['defaultClient']));
+        }
+
 
         foreach ($config['clients'] as $name => $client) {
             $options = definition(ClientOptions::class)

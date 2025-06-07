@@ -13,6 +13,7 @@ namespace Vanta\Integration\Symfony\Temporal\DependencyInjection\Compiler;
 
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface as CompilerPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Exception\InvalidArgumentException;
 use Symfony\Component\DependencyInjection\Reference;
 use Temporal\Client\ClientOptions;
 use Temporal\Client\ScheduleClient as GrpcScheduleClient;
@@ -34,11 +35,13 @@ final class ScheduleClientCompilerPass implements CompilerPass
     public function process(ContainerBuilder $container): void
     {
         /** @var RawConfiguration $config */
-        $config  = $container->getParameter('temporal.config');
-        $clients = [];
-
-
+        $config                = $container->getParameter('temporal.config');
+        $clients               = [];
         $collectorInterceptors = [];
+
+        if (!in_array($config['defaultScheduleClient'], array_keys($config['scheduleClients']))) {
+            throw new InvalidArgumentException(sprintf('No default ScheduleClient "%s" configured', $config['defaultScheduleClient']));
+        }
 
         foreach ($config['scheduleClients'] as $name => $client) {
             $options = definition(ClientOptions::class)

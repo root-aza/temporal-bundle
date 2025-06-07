@@ -254,7 +254,6 @@ final class Configuration implements BundleConfiguration
             ->fixXmlConfig('client', 'clients')
             ->fixXmlConfig('worker', 'workers')
             ->fixXmlConfig('scheduleClient', 'scheduleClients')
-            ->fixXmlConfig('testService', 'testServices')
             ->children()
                 ->scalarNode('defaultClient')
                     ->defaultValue('default')
@@ -336,6 +335,7 @@ final class Configuration implements BundleConfiguration
 
                         ->arrayNode('testing')
                             ->addDefaultsIfNotSet()
+                            ->fixXmlConfig('testService', 'testServices')
                             ->children()
                                 ->booleanNode('enabled')
                                     ->defaultFalse()

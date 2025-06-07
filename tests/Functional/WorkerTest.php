@@ -152,7 +152,7 @@ final class WorkerTest extends KernelTestCase
     public function testRegisterWorkerWithInvalidCustomFactory(): void
     {
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('Invalid configuration for path "temporal.workerFactory": workerFactory does not implement interface: Temporal\Worker\WorkerFactoryInterface');
+        $this->expectExceptionMessage('Invalid configuration for path "temporal.pool.workerFactory": workerFactory does not implement interface: Temporal\Worker\WorkerFactoryInterface');
 
         self::bootKernel([
             'config' => static function (TestKernel $kernel): void {
