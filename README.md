@@ -35,10 +35,21 @@ composer req temporal serializer
 
 ## Doctrine integrations
 
+Install packages:
+
+```bash
+composer require orm temporal-doctrine
+```
+
+
 If [`DoctrineBundle`](https://github.com/doctrine/DoctrineBundle) is use, the following parameters is available to you:
 
 - `pool.useGlobalDoctrineIntegration` - Connect integration to all workers
-- `workers.useDoctrineIntegration` -    Connect the integration to a specific worker
+- `pool.useGlobalLoggingDoctrineOpenTransaction`        - Connect interceptor to all workers that report unclosed transaction to monolog
+- `pool.useGlobalTrackingSentryDoctrineOpenTransaction` - Connect interceptor to all workers that report unclosed transaction to sentry
+- `workers.useDoctrineIntegration`                      - Connect the integration to a specific worker
+- `workers.useLoggingDoctrineOpenTransaction`           - Connect interceptor to a specific worker that report unclosed transaction to monolog
+- `workers.useTrackingSentryDoctrineOpenTransaction`    - Connect the integration to a specific worker that report unclosed transaction to sentry
 
 These parameters accept a list of entity-managers
 
