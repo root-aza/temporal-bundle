@@ -69,6 +69,7 @@ final class ScheduleClientCompilerPass implements CompilerPass
 
             $container->register($id, ScheduleClient::class)
                 ->setFactory([GrpcScheduleClient::class, 'create'])
+                ->setPublic($config['pool']['testing']['enabled'])
                 ->setArguments([
                     '$serviceClient' => grpcClient($client),
                     '$options'       => $options,

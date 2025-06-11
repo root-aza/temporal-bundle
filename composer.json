@@ -23,7 +23,8 @@
       "Vanta\\Integration\\Symfony\\Temporal\\": "src/"
     },
     "files": [
-      "src/DependencyInjection/function.php"
+      "src/DependencyInjection/function.php",
+      "src/Testing/RoadRunner/function.php"
     ]
   },
   "autoload-dev": {
@@ -53,7 +54,9 @@
     "symfony/monolog-bundle": "^3.8",
     "symfony/web-profiler-bundle": "^6.0|^7.0",
     "vanta/temporal-sentry": "^0.2",
-    "vanta/temporal-doctrine": "^0.1"
+    "vanta/temporal-doctrine": "^0.1",
+    "codeception/codeception": "^5.3",
+    "spiral/roadrunner-cli": "^2.7"
   },
   "suggest": {
     "vanta/temporal-sentry": "Integration for sentry",

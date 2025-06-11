@@ -187,35 +187,50 @@ temporal:
 
 
 
-## Worker Factory
+## Testing
 
-By default the `Temporal\WorkerFactory` is used to instantiate the workers. However when you are unit-testing you
-may wish to override the default factory with the one provided by the ['Testing framework'](https://github.com/temporalio/sdk-php/tree/master/testing)
+The following testing frameworks are supported:
+- [`PHPUnit`](https://github.com/sebastianbergmann/phpunit)
+- [`Codeception`](https://github.com/Codeception/Codeception)
 
-Example Config:
 
-```yaml
-temporal:
-  defaultClient: default
-  pool:
-    dataConverter: temporal.data_converter
-    roadrunnerRPC: '%env(RR_RPC)%'
 
-  workers:
-    default:
-      taskQueue: default
-      exceptionInterceptor: temporal.exception_interceptor
+The following parameters is available to you:
 
-  clients:
-    default:
-      namespace: default
-      address: '%env(TEMPORAL_ADDRESS)%'
-      dataConverter: temporal.data_converter
+- `pool.testing.enabled` - Activate test mode
+- `pool.testing.activityMocker` - Which ActivityMocker to use. default value: rr_kv, Allowed values: rr_kv, in_memory or service id
+  if you want to use your own implementation ``Temporal\Worker\ActivityInvocationCache\ActivityInvocationCacheInterface``
+- `pool.testServices.<name>` - List configured  ```Temporal\Testing\TestService```
 
-when@test:
-  temporal:
-    workerFactory: Temporal\Testing\WorkerFactory
+
+
+### Using with PHPUnit
+
+Add the Extension to your PHPUnit XML config
+
+```xml
+<phpunit>
+    ...
+    <extensions>
+        <bootstrap class="Vanta\Integration\Symfony\Temporal\Testing\PHPUnit\IntegrationTestingExtension" />
+    </extensions>
+</phpunit>
 ```
+
+
+Added new env to .env.test
+
+```env
+TEMPORAL_ADDRESS=0.0.0.0:7233
+RR_RPC=tcp://0.0.0.0:6001
+```
+
+
+### Using with Codeception
+
+TODO...
+
+
 
 
 

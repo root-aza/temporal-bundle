@@ -75,6 +75,7 @@ final class ClientCompilerPass implements CompilerPass
 
             $container->register($id, WorkflowClient::class)
                 ->setFactory([GrpcWorkflowClient::class, 'create'])
+                ->setPublic($config['pool']['testing']['enabled'])
                 ->setArguments([
                     '$serviceClient'       => grpcClient($client),
                     '$options'             => $options,

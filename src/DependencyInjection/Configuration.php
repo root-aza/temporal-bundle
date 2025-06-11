@@ -341,7 +341,7 @@ final class Configuration implements BundleConfiguration
                                     ->defaultFalse()
                                 ->end()
                                 ->scalarNode('activityMocker')
-                                    ->defaultValue('in_memory')
+                                    ->defaultValue('rr_kv')
                                     ->info('Allowed value: in_memory or rr_kv or service id if custom activityMocker')
                                 ->end()
                                 ->scalarNode('defaultTestService')
