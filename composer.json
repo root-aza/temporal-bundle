@@ -50,7 +50,7 @@
     "psr/log": "^3.0",
     "sentry/sentry-symfony": "^4.10",
     "nyholm/symfony-bundle-test": "^3.0",
-    "phpunit/phpunit": "^10.3",
+    "phpunit/phpunit": "^11",
     "symfony/monolog-bundle": "^3.8",
     "symfony/web-profiler-bundle": "^6.0|^7.0",
     "vanta/temporal-sentry": "^0.2",

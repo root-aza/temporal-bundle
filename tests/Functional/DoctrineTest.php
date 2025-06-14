@@ -378,25 +378,25 @@ final class DoctrineTest extends KernelTestCase
      */
     public static function temporalInvalidConfigurationDoctrine(): iterable
     {
-        yield ['/Framework/Config/temporal_use_global_doctrine_invalid_config.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Please set entity-manager name')];
-        yield ['/Framework/Config/temporal_use_global_doctrine_not_found_entity_manager.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Not found entity managers: spiral, test')];
-        yield ['/Framework/Config/temporal_use_global_doctrine_repeated_entity_manager.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Should not be repeated entity-manager')];
-        yield ['/Framework/Config/temporal_use_global_doctrine.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Install dependencies `composer req orm'), static function (): void {
+        yield ['/Framework/Config/temporal_use_global_doctrine_invalid_config.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Invalid configuration for path "temporal.pool.useGlobalDoctrineIntegration": Please set entity-manager name.')];
+        yield ['/Framework/Config/temporal_use_global_doctrine_not_found_entity_manager.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Invalid configuration for path "temporal.pool.useGlobalDoctrineIntegration": Not found entity managers: spiral, test')];
+        yield ['/Framework/Config/temporal_use_global_doctrine_repeated_entity_manager.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Invalid configuration for path "temporal.pool.useGlobalDoctrineIntegration": Should not be repeated entity-manager')];
+        yield ['/Framework/Config/temporal_use_global_doctrine.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Invalid configuration for path "temporal.pool.useGlobalDoctrineIntegration": Install dependencies `composer req orm`'), static function (): void {
             InstalledVersions::setHandler(static function (string $package, string $class, array $parentPackages): bool {
                 return false;
             });
         }];
-        yield ['/Framework/Config/temporal_use_global_doctrine.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Install dependencies `composer req temporal-doctrine'), static function (): void {
+        yield ['/Framework/Config/temporal_use_global_doctrine.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Invalid configuration for path "temporal.pool.useGlobalDoctrineIntegration": Install dependencies `composer req temporal-doctrine`'), static function (): void {
             InstalledVersions::setHandler(static function (string $package, string $class, array $parentPackages): bool {
                 return $package == 'doctrine/doctrine-bundle';
             });
         }];
-        yield ['/Framework/Config/temporal_use_specific_doctrine_worker.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Install dependencies `composer req orm'), static function (): void {
+        yield ['/Framework/Config/temporal_use_specific_doctrine_worker.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Invalid configuration for path "temporal.workers.doctrine_with_default_use.useDoctrineIntegration": Install dependencies `composer req orm`'), static function (): void {
             InstalledVersions::setHandler(static function (string $package, string $class, array $parentPackages): bool {
                 return false;
             });
         }];
-        yield ['/Framework/Config/temporal_use_specific_doctrine_worker.yaml', invalidConfiguration('temporal.pool.useGlobalDoctrineIntegration', 'Install dependencies `composer req temporal-doctrine'), static function (): void {
+        yield ['/Framework/Config/temporal_use_specific_doctrine_worker.yaml', invalidConfiguration('temporal.pool.gavno', 'Invalid configuration for path "temporal.workers.doctrine_with_default_use.useDoctrineIntegration": Install dependencies `composer req temporal-doctrine`'), static function (): void {
             InstalledVersions::setHandler(static function (string $package, string $class, array $parentPackages): bool {
                 return $package == 'doctrine/doctrine-bundle';
             });
