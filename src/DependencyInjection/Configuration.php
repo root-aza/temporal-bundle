@@ -27,6 +27,7 @@ use Temporal\Worker\WorkerFactoryInterface;
 use Temporal\Worker\WorkflowPanicPolicy;
 use Temporal\WorkerFactory;
 use Vanta\Integration\Symfony\Temporal\InstalledVersions;
+use Vanta\Integration\Temporal\Doctrine\Finalizer\Finalizer;
 use Vanta\Integration\Temporal\Sentry\SentryWorkflowOutboundCallsInterceptor;
 
 /**
@@ -181,10 +182,18 @@ final class Configuration implements BundleConfiguration
                 throw new InvalidArgumentException('Install dependencies `composer req orm`');
             }
 
+            if (!InstalledVersions::willBeAvailable('vanta/temporal-doctrine', Finalizer::class, [])) {
+                throw new InvalidArgumentException('Install dependencies `composer req temporal-doctrine`');
+            }
+
+
             if (!(count($values) == count(array_unique($values)))) {
                 throw new InvalidArgumentException('Should not be repeated entity-manager');
             }
 
+            if ($values == []) {
+                throw new InvalidArgumentException('Please set entity-manager name.');
+            }
 
             $notFoundEntityManages = [];
 
@@ -218,6 +227,9 @@ final class Configuration implements BundleConfiguration
                 throw new InvalidArgumentException('Should not be repeated connection');
             }
 
+            if ($values == []) {
+                throw new InvalidArgumentException('Please set entity-manager name.');
+            }
 
             $notFoundConnections = [];
 
@@ -240,7 +252,7 @@ final class Configuration implements BundleConfiguration
 
         $trackingSentryDoctrineOpenTransactionValidator = function (array $values) use ($sentryValidator, $loggingDoctrineOpenTransactionValidator): bool {
             if (!$sentryValidator()) {
-                throw new InvalidArgumentException('Install dependencies `composer req sentry/sentry-symfony vanta/temporal-sentry`');
+                throw new InvalidArgumentException('Install dependencies `composer req sentry temporal-doctrine`');
             }
 
             $loggingDoctrineOpenTransactionValidator($values);

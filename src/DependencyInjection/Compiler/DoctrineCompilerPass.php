@@ -43,6 +43,8 @@ final readonly class DoctrineCompilerPass implements CompilerPass
             return;
         }
 
+
+
         /** @var array<non-empty-string, non-empty-string> $entityManagers */
         $entityManagers = $container->getParameter('doctrine.entity_managers');
 

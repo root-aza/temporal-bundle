@@ -63,7 +63,25 @@ final class TemporalExtension extends Extension
      */
     public function getConfiguration(array $config, ContainerBuilder $container): Configuration
     {
-        return new Configuration([], []);
+        $entityManagers = [];
+        $connections    = [];
+
+        if ($container->hasParameter('doctrine.entity_managers')) {
+            /** @var array<non-empty-string, non-empty-string> $rawEntityManagers */
+            $rawEntityManagers = $container->getParameter('doctrine.entity_managers');
+
+            $entityManagers = array_keys($rawEntityManagers);
+        }
+
+        if ($container->hasParameter('doctrine.connections')) {
+            /** @var array<non-empty-string, non-empty-string> $rawConnections */
+            $rawConnections = $container->getParameter('doctrine.connections');
+
+            $connections = array_keys($rawConnections);
+        }
+
+
+        return new Configuration($connections, $entityManagers);
     }
 }
 
