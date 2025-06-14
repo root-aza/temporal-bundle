@@ -56,7 +56,7 @@
     "vanta/temporal-sentry": "^0.2",
     "vanta/temporal-doctrine": "^0.1",
     "codeception/codeception": "^5.3",
-    "spiral/roadrunner-cli": "^2.7"
+    "spiral/roadrunner-cli": "^2"
   },
   "suggest": {
     "vanta/temporal-sentry": "Integration for sentry",
